@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="theme-color" content="#1F5A5A">
+<title>查看結果 — 工作人員</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  body { font-size: 16px; }
+  .container { max-width: 960px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .row .text { flex: 1; min-width: 160px; }
+  .pt { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: var(--paper); }
+  .pt .info { flex: 1; } .pt .info b { font-size: 17px; } .pt .info small { color: var(--ink-faint); display: block; }
+  .pt .btn { min-height: 42px; padding: 6px 16px; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 8px; }
+  th, td { padding: 8px 8px; border-bottom: 1px solid var(--border); text-align: center; }
+  th { color: var(--ink-faint); font-weight: 500; background: var(--teal-tint); }
+  td:first-child, th:first-child { text-align: left; }
+  .big { font-family: var(--font-serif); font-size: 20px; color: var(--teal); }
+  .dim { color: var(--ink-faint); }
+  .sec { font-family: var(--font-serif); font-size: 18px; color: var(--teal); margin: 18px 0 4px; }
+  .head { background: var(--teal-tint); border: 1px solid #C9D6D6; border-radius: var(--radius-card); padding: 14px 18px; margin-bottom: 10px; }
+  .small { font-size: 13px; color: var(--ink-faint); }
+  .bar { display: inline-block; height: 10px; background: var(--teal); border-radius: 99px; vertical-align: middle; margin-left: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header"><div class="tag">PMS-cog · Staff</div><h1>查看結果</h1><p class="sub">一位病人在各時點的恢復問卷、認知測驗、健康狀況與遊玩紀錄。</p><div class="divider"></div></div>
+  <div id="alert" class="alert"></div>
+
+  <div class="card" id="keyCard">
+    <div class="label">團隊通行碼</div>
+    <div class="row"><input class="text" id="key" type="password" autocapitalize="off" autocomplete="off" placeholder="輸入通行碼" onkeydown="if(event.key==='Enter')unlock()"><button class="btn btn-primary" onclick="unlock()">解鎖</button></div>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="card">
+      <div class="label">搜尋病人</div>
+      <div class="row"><input class="text" id="q" type="search" autocomplete="off" placeholder="姓名" onkeydown="if(event.key==='Enter')search()"><button class="btn btn-primary" onclick="search()">搜尋</button></div>
+      <div id="results" class="mt"></div>
+    </div>
+    <div id="report"></div>
+    <p class="center mt"><a class="btn btn-ghost" href="bind.html">回綁定頁</a>　<a class="btn btn-ghost" href="minicog.html">Mini-Cog</a>　<a class="btn btn-ghost" href="../index.html">病人首頁</a></p>
+  </div>
+  <p class="footer">資料來源：PMS-cog 六張工作表＋主系統「滿意度問卷」。測驗原始指標（每題反應、序列）在「認知測驗」工作表的 JSON 欄。</p>
+</div>
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+<script>
+const { $, jsonp, session, PHASE_LABEL } = COG;
+let KEY = '';
+const PH = ['T0', 'T1', 'T2', 'T3'];
+const TEST_NAME = { memory: '圖樣記憶', groceries: '買菜', lines: '接線' };
+function alertMsg(type, msg) { const a = $('alert'); a.className = 'alert show ' + type; a.textContent = msg; }
+async function unlock() {
+  const k = $('key').value.trim() || session.staffKey(); if (!k) return alertMsg('err', '請輸入通行碼');
+  const btn = document.querySelector('#keyCard .btn-primary'); btn.disabled = true; btn.textContent = '驗證中…';
+  try {
+    const r = await jsonp({ action: 'role', key: k }, 20000);
+    if (!r || !r.role) { btn.disabled = false; btn.textContent = '解鎖'; return alertMsg('err', '通行碼不正確'); }
+    KEY = k; session.setStaffKey(k); $('keyCard').style.display = 'none'; $('main').style.display = 'block';
+    const m = location.search.match(/pk=([^&]+)/); if (m) load(decodeURIComponent(m[1]));
+  } catch (e) { btn.disabled = false; btn.textContent = '解鎖'; alertMsg('err', '連線失敗：' + e.message); }
+}
+async function search() {
+  const q = $('q').value.trim(); if (!q) return;
+  $('results').innerHTML = '<span class="small">搜尋中…</span>';
+  try {
+    const r = await jsonp({ action: 'searchPatients', key: KEY, q });
+    if (r.error) return $('results').innerHTML = '<span class="small">' + r.error + '</span>';
+    if (!r.list.length) return $('results').innerHTML = '<span class="small">找不到</span>';
+    $('results').innerHTML = r.list.map(p => `<div class="pt"><div class="info"><b>${p.name}</b> ${p.gender || ''} ${p.age ? p.age + ' 歲' : ''}<small>${p.surgery || ''} · 預定 ${p.scheduledDate || '未排'} · ${p.surgeryStatus || ''}</small></div><button class="btn btn-primary" onclick="load('${p.pk}')">查看</button></div>`).join('');
+  } catch (e) { $('results').innerHTML = '<span class="small">連線失敗：' + e.message + '</span>'; }
+}
+function cell(v, max) { if (v === '' || v == null) return '<span class="dim">—</span>'; const n = Number(v); return isNaN(n) ? v : `<span class="big">${n}</span>${max ? `<span class="bar" style="width:${Math.max(4, Math.round(n / max * 60))}px"></span>` : ''}`; }
+async function load(pk) {
+  $('report').innerHTML = '<div class="card"><span class="small">讀取中…</span></div>'; $('results').innerHTML = '';
+  try {
+    const d = await jsonp({ action: 'patientResults', key: KEY, pk }, 30000);
+    if (d.error) return $('report').innerHTML = '<div class="card">' + d.error + '</div>';
+    const byPhase = (rows) => { const m = {}; rows.forEach(r => { m[r['時點']] = r; }); return m; };
+    const q = byPhase(d.qor15), e5 = byPhase(d.eq5d);
+    const t = {}; d.tests.forEach(r => { (t[r['測驗']] = t[r['測驗']] || {})[r['時點']] = r; });
+    let html = `<div class="head"><b style="font-size:19px">${d.name}</b>　<span class="small">${d.surgery || ''} · 手術日 ${d.surgeryDate || '未排'} · ${d.status || ''}</span></div>`;
+    const hdr = '<tr><th></th>' + PH.map(p => `<th>${p}<br><span class="small">${PHASE_LABEL[p]}</span></th>`).join('') + '</tr>';
+    html += '<div class="sec">恢復狀況問卷 QoR-15（總分 0–150）</div><table>' + hdr +
+      '<tr><td>總分</td>' + PH.map(p => `<td>${cell(q[p] && q[p]['總分'], 150)}</td>`).join('') + '</tr>' +
+      '<tr><td class="small">A 感覺如何（0–100）</td>' + PH.map(p => `<td>${cell(q[p] && q[p]['A小計'])}</td>`).join('') + '</tr>' +
+      '<tr><td class="small">B 不適症狀（0–50，高＝少）</td>' + PH.map(p => `<td>${cell(q[p] && q[p]['B小計'])}</td>`).join('') + '</tr>' +
+      '<tr><td class="small">疼痛 Q11/Q12</td>' + PH.map(p => `<td class="small">${q[p] ? (q[p]['Q11中度疼痛'] + ' / ' + q[p]['Q12劇烈疼痛']) : '—'}</td>`).join('') + '</tr>' +
+      '<tr><td class="small">填寫時間</td>' + PH.map(p => `<td class="small">${q[p] ? q[p]['時間戳記'] : '—'}</td>`).join('') + '</tr></table>';
+    html += '<div class="sec">認知測驗（0–100）</div><table>' + hdr +
+      Object.keys(TEST_NAME).map(k => `<tr><td>${TEST_NAME[k]}</td>` + PH.map(p => `<td>${cell(t[k] && t[k][p] && t[k][p]['分數'], 100)}${t[k] && t[k][p] ? `<div class="small">${COG.fmtTime(t[k][p]['用時秒'] || 0)}</div>` : ''}</td>`).join('') + '</tr>').join('') + '</table>';
+    html += '<div class="sec">健康狀況 EQ-5D-5L</div><table>' + hdr +
+      '<tr><td>五面向（1 最好–5 最差）</td>' + PH.map(p => `<td>${e5[p] ? [e5[p]['行動'], e5[p]['自我照顧'], e5[p]['日常活動'], e5[p]['疼痛不適'], e5[p]['焦慮憂鬱']].join('') : '<span class="dim">—</span>'}</td>`).join('') + '</tr>' +
+      '<tr><td>VAS（0–100）</td>' + PH.map(p => `<td>${cell(e5[p] && e5[p]['VAS'], 100)}</td>`).join('') + '</tr></table>';
+    if (d.minicog && d.minicog.length) html += '<div class="sec">Mini-Cog（術前）</div><table><tr><th>日期</th><th>名詞版本</th><th>回憶</th><th>時鐘</th><th>總分</th><th>施測者</th><th>圖</th></tr>' +
+      d.minicog.map(m => `<tr><td>${m['時間戳記']}</td><td>${m['名詞版本']}</td><td>${m['三詞回憶']}</td><td>${m['畫時鐘']}</td><td class="big">${m['總分']}</td><td>${m['施測者'] || ''}</td><td>${/^http/.test(m['時鐘圖連結']) ? `<a href="${m['時鐘圖連結']}" target="_blank">開啟</a>` : ''}</td></tr>`).join('') + '</table>';
+    if (d.prems && d.prems.length) html += '<div class="sec">照護經驗問卷 PREMs</div><table><tr><th>填寫時間</th><th>整體滿意度（1–10）</th></tr>' + d.prems.map(r => `<tr><td>${r['時間戳記']}</td><td class="big">${r['整體滿意度']}</td></tr>`).join('') + '</table>';
+    const fun = {}; d.fun.forEach(r => { const g = r['遊戲']; fun[g] = fun[g] || { rounds: 0, min: 0 }; fun[g].rounds += Number(r['局數']) || 0; fun[g].min += Number(r['分鐘']) || 0; });
+    html += '<div class="sec">休閒遊戲使用量</div>' + (Object.keys(fun).length ? '<table><tr><th>遊戲</th><th>局數</th><th>分鐘</th></tr>' + Object.keys(fun).map(g => `<tr><td>${g}</td><td>${fun[g].rounds}</td><td>${Math.round(fun[g].min)}</td></tr>`).join('') + '</table>' : '<span class="small">尚無紀錄</span>');
+    html += '<div class="sec">平板綁定紀錄</div>' + (d.binds.length ? '<table><tr><th>裝置</th><th>綁定</th><th>解除</th><th>狀態</th></tr>' + d.binds.map(b => `<tr><td>${b['裝置'] || '—'}</td><td class="small">${b['綁定時間'] ? new Date(b['綁定時間']).toLocaleString('zh-TW') : ''}</td><td class="small">${b['解除時間'] ? new Date(b['解除時間']).toLocaleString('zh-TW') : ''}</td><td>${b['狀態']}</td></tr>`).join('') + '</table>' : '<span class="small">尚無紀錄</span>');
+    $('report').innerHTML = '<div class="card">' + html + '</div>';
+  } catch (e) { $('report').innerHTML = '<div class="card">連線失敗：' + e.message + '</div>'; }
+}
+(function init() { const m = location.hash.match(/k=([^&]+)/); if (m) $('key').value = decodeURIComponent(m[1]); if (m || session.staffKey()) unlock(); })();
+</script>
+</body>
+</html>

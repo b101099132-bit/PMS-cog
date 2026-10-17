@@ -133,5 +133,13 @@
   // 以亂數種子產生可重現的隨機數（每次測驗題目不同，但可從 metrics.seed 重現）
   function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
 
+  // 離線可開頁：註冊 service worker（sw.js 在網站根目錄；core.js 在 _shared/ 下）
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    try {
+      const root = new URL('..', document.currentScript ? document.currentScript.src : location.href).href;
+      navigator.serviceWorker.register(root + 'sw.js', { scope: root }).catch(e => console.warn('SW 註冊失敗', e));
+    } catch (e) {}
+  }
+
   window.COG = { finishTest, rng, URL: APPS_SCRIPT_URL, CFG, jsonp, submit, flushQueue, queueLength, session, deviceId, phaseFromUrl, PHASE_LABEL, $, shuffle, fmtTime, funLogger };
 })();

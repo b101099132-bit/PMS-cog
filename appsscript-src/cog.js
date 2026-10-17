@@ -111,6 +111,7 @@ function doGet(e) {
   if (a === 'setPhase') return handleSetPhase(e);
   if (a === 'lookupTablet') return handleLookupTablet(e);
   if (a === 'diag') return handleCogDiag(e);
+  if (a === 'patientResults') return handlePatientResults(e);
   return ContentService.createTextOutput('PMS-cog backend is running.').setMimeType(ContentService.MimeType.TEXT);
 }
 function doPost(e) {
@@ -184,6 +185,36 @@ function cogPatient(pk) {
     }
   }
   return null;
+}
+/* 工作人員：一位病人在各時點的所有結果 ?action=patientResults&key=&pk= */
+function handlePatientResults(e) {
+  const p = e.parameter || {};
+  try {
+    if (!cogStaff(p)) return jsonpResponse(p.callback, { error: 'unauthorized' });
+    const pk = String(p.pk || '').trim();
+    if (!pk) return jsonpResponse(p.callback, { error: '缺少病人主鍵' });
+    const pt = cogPatient(pk) || {};
+    const fmt = v => v ? Utilities.formatDate(new Date(v), COG_TZ, 'yyyy-MM-dd HH:mm') : '';
+    const rowsOf = (k, pkCol) => {
+      const sh = cogSheet(k); const n = sh.getLastRow() - 1; if (n <= 0) return [];
+      const h = COG_SHEETS[k].headers;
+      return sh.getRange(2, 1, n, h.length).getValues().filter(r => String(r[pkCol]) === pk).map(r => { const o = {}; h.forEach((name, i) => o[name] = (name === '時間戳記') ? fmt(r[i]) : r[i]); return o; });
+    };
+    const out = {
+      ok: true, name: pt.name || '', surgeryDate: pt.actualDate || pt.scheduledDate || '', surgery: pt.surgery || '', status: pt.status || '',
+      qor15: rowsOf('qor15', 2), tests: rowsOf('test', 2).map(o => { delete o['原始指標JSON']; return o; }), eq5d: rowsOf('eq5d', 2),
+      fun: rowsOf('fun', 2), minicog: rowsOf('minicog', 1), binds: rowsOf('bind', 2).map(o => { delete o.token; return o; }),
+    };
+    try {   // 主系統滿意度問卷（若已加「病人PK」欄）
+      const sv = cogSS().getSheetByName('滿意度問卷');
+      if (sv && sv.getLastRow() > 1) {
+        const hdr = sv.getRange(1, 1, 1, sv.getLastColumn()).getValues()[0].map(String);
+        const c = hdr.indexOf('病人PK'), t = hdr.indexOf('時間戳記'), o = hdr.indexOf('整體滿意度');
+        if (c >= 0) out.prems = sv.getRange(2, 1, sv.getLastRow() - 1, hdr.length).getValues().filter(r => String(r[c]) === pk).map(r => ({ '時間戳記': fmt(r[t]), '整體滿意度': o >= 0 ? r[o] : '' }));
+      }
+    } catch (ignore) {}
+    return jsonpResponse(p.callback, out);
+  } catch (err) { console.error('handlePatientResults:', err); return jsonpResponse(p.callback, { error: err.message }); }
 }
 /* 診斷：?action=diag&key=通行碼&callback=cb → 目前綁到哪份試算表、有哪些分頁 */
 function handleCogDiag(e) {

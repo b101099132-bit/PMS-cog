@@ -68,3 +68,11 @@ setup 結束會印出編輯器網址。打開 → 上方函式選 `addCogSheets`
 ## GitHub Pages 注意
 
 - 根目錄必須有空檔 `.nojekyll`（已放），否則 Jekyll 會忽略底線開頭的 `_shared/`，整站 JS/CSS 404。
+
+## 2026-10-18 新增
+
+- `staff/results.html`：工作人員查看一位病人各時點的 QoR-15、認知測驗、EQ-5D、Mini-Cog、PREMs、遊玩量、綁定紀錄（後端 `action=patientResults`）。綁定頁有按鈕。
+
+- PWA：`manifest.json`＋`icons/`（加入主畫面有正式圖示與名稱）、`sw.js`（同網域檔案先連網、失敗用快取；斷線也能開頁面）。core.js 自動註冊。
+
+- 主系統串接：首頁 PREMs 連結帶 `?pk=`，survey.html 隱藏姓名欄、後端補姓名；填過即打勾。
