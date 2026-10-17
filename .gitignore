@@ -1,3 +1,13 @@
 appsscript-src/.clasp.json
 appsscript-src/.clasprc.json
 *.bak
+*.bak_*
+# 非網站檔案（原始圖檔、文件、暫存）不上傳
+隊徽*
+*.psd
+*.ai
+*.docx
+*.xlsx
+*.pdf
+Thumbs.db
+.DS_Store
