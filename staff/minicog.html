@@ -41,7 +41,7 @@
 
   <div class="card" id="keyCard">
     <div class="label">團隊通行碼</div>
-    <div class="row"><input class="text" id="key" type="password" autocapitalize="off" autocomplete="off" placeholder="輸入通行碼"><button class="btn btn-primary" onclick="unlock()">解鎖</button></div>
+    <div class="row"><input class="text" id="key" type="password" autocapitalize="off" autocomplete="off" placeholder="輸入通行碼" onkeydown="if(event.key==='Enter')unlock()"><button class="btn btn-primary" onclick="unlock()">解鎖</button></div>
   </div>
 
   <div id="main" style="display:none">
@@ -115,13 +115,17 @@ function toggle(el) { el.classList.toggle('sel'); }
 async function unlock() {
   const k = $('key').value.trim() || session.staffKey();
   if (!k) return alertMsg('err', '請輸入通行碼');
+  const btn = document.querySelector('#keyCard .btn-primary'); btn.disabled = true; btn.textContent = '驗證中…';
+  const fail = msg => { btn.disabled = false; btn.textContent = '解鎖'; alertMsg('err', msg); $('keyCard').insertAdjacentHTML('beforeend', '<div class="err-msg" style="display:block" id="keyErr">' + msg + '</div>'); const old = document.querySelectorAll('#keyErr'); old.forEach((e, i) => { if (i < old.length - 1) e.remove(); }); };
   try {
-    const r = await jsonp({ action: 'role', key: k }, 15000);
-    if (!r || !r.role) return alertMsg('err', '通行碼不正確');
+    const r = await jsonp({ action: 'role', key: k }, 20000);
+    if (!r) return fail('後端沒有回應');
+    if (r.error) return fail('後端錯誤：' + r.error);
+    if (!r.role) return fail('通行碼不正確（後端回覆 role=null）。請用網址 ?action=role&key=…&callback=cb 測試。');
     KEY = k; session.setStaffKey(k);
     $('keyCard').style.display = 'none'; $('main').style.display = 'block';
     renderVer(); renderRecall(); initCanvas(); loadBound();
-  } catch (e) { alertMsg('err', '連線失敗：' + e.message); }
+  } catch (e) { fail('連線失敗：' + e.message); }
 }
 async function loadBound() {
   if (!session.token()) { $('boundInfo').textContent = '這台平板目前沒有綁定病人，請用下方搜尋選擇。'; return; }
