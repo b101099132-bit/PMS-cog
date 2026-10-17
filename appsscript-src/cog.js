@@ -110,6 +110,7 @@ function doGet(e) {
   if (a === 'listTablets') return handleListTablets(e);
   if (a === 'setPhase') return handleSetPhase(e);
   if (a === 'lookupTablet') return handleLookupTablet(e);
+  if (a === 'diag') return handleCogDiag(e);
   return ContentService.createTextOutput('PMS-cog backend is running.').setMimeType(ContentService.MimeType.TEXT);
 }
 function doPost(e) {
@@ -183,6 +184,17 @@ function cogPatient(pk) {
     }
   }
   return null;
+}
+/* 診斷：?action=diag&key=通行碼&callback=cb → 目前綁到哪份試算表、有哪些分頁 */
+function handleCogDiag(e) {
+  const p = e.parameter || {};
+  try {
+    if (!cogStaff(p)) return jsonpResponse(p.callback, { error: 'unauthorized' });
+    const ss = cogSS();
+    return jsonpResponse(p.callback, { spreadsheetName: ss.getName(), spreadsheetId: ss.getId(), url: ss.getUrl(),
+      sheets: ss.getSheets().map(sh => sh.getName()), usingProperty: !!PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID'),
+      hasPatients: !!ss.getSheetByName(COG_SHEET_PATIENTS) });
+  } catch (err) { return jsonpResponse(p.callback, { error: err.message }); }
 }
 function handleCogRole(e) {
   const p = e.parameter || {};
