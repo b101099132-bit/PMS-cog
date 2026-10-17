@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>Mini-Cog 施測 — 工作人員</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  body { font-size: 17px; }
+  .card .label { font-size: 19px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row .text { flex: 1; min-width: 160px; }
+  .say { background: var(--gold-tint); border-left: 4px solid var(--gold); padding: 12px 16px; border-radius: var(--radius); font-size: 18px; margin: 10px 0; }
+  .words { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+  .words .w { text-align: center; font-size: 30px; font-family: var(--font-serif); padding: 14px; background: var(--paper); border: 2px solid var(--gold); border-radius: 12px; }
+  .ver { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ver button { min-height: 44px; padding: 4px 14px; font-size: 16px; }
+  .ver button.sel { background: var(--teal); color: #fff; border-color: var(--teal); }
+  .clockwrap { position: relative; width: min(92vw, 520px); aspect-ratio: 1; margin: 10px auto; background: #fff; border-radius: 16px; border: 1px solid var(--border); touch-action: none; }
+  .clockwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 16px; }
+  .tools { display: flex; justify-content: center; gap: 10px; margin: 8px 0; }
+  .tools .btn { min-height: 48px; padding: 6px 18px; font-size: 16px; }
+  .recall { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .recall .opt { justify-content: center; font-size: 22px; }
+  .score { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; font-size: 18px; align-items: center; }
+  .score .big { font-family: var(--font-serif); font-size: 34px; color: var(--teal); }
+  .pt { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: var(--paper); }
+  .pt .info { flex: 1; font-size: 16px; } .pt .info b { font-size: 18px; } .pt .info small { color: var(--ink-faint); display: block; }
+  .pt .btn { min-height: 44px; padding: 6px 16px; font-size: 16px; }
+  .small { font-size: 14px; color: var(--ink-faint); }
+  .step { font-family: var(--font-serif); color: var(--gold); font-size: 15px; letter-spacing: .1em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header"><div class="tag">PMS-cog · Staff</div><h1>Mini-Cog 施測紀錄</h1><p class="sub">護理師施測、護理師操作；病人只在步驟 2 用手指在平板上畫時鐘。</p><div class="divider"></div></div>
+  <div id="alert" class="alert"></div>
+
+  <div class="card" id="keyCard">
+    <div class="label">團隊通行碼</div>
+    <div class="row"><input class="text" id="key" type="password" autocapitalize="off" autocomplete="off" placeholder="輸入通行碼"><button class="btn btn-primary" onclick="unlock()">解鎖</button></div>
+  </div>
+
+  <div id="main" style="display:none">
+    <!-- 病人 -->
+    <div class="card">
+      <div class="label">病人</div>
+      <div id="boundInfo" class="small"></div>
+      <div class="row mt"><input class="text" id="q" type="search" placeholder="或輸入姓名搜尋其他病人" onkeydown="if(event.key==='Enter')search()"><button class="btn btn-ghost" onclick="search()">搜尋</button></div>
+      <div id="results" class="mt"></div>
+      <div class="notice" id="chosen" style="display:none"></div>
+    </div>
+
+    <!-- 步驟 1 -->
+    <div class="card">
+      <div class="step">步驟 1</div><div class="label">三個名詞記憶</div>
+      <div class="hint">名詞版本（重複施測請換版）：</div>
+      <div class="ver" id="ver"></div>
+      <div class="say">「請仔細聽清楚，我等一下會說出三個名詞，請馬上複誦給我聽，然後儘量背下來。這三個名詞是：」</div>
+      <div class="words" id="words"></div>
+      <div class="hint">「請馬上複誦。」如果當事人複誦失敗三次，直接進入步驟 2。</div>
+      <label class="opt" id="fail3" onclick="toggle(this)"><span class="dot"></span>複誦失敗三次</label>
+    </div>
+
+    <!-- 步驟 2 -->
+    <div class="card">
+      <div class="step">步驤 2</div><div class="label">畫時鐘（病人用手指畫）</div>
+      <div class="say">「接下來我要請你畫時鐘。首先把時鐘上該有的數字全都寫下來。」完成後：「現在把指針設在 11 點 10 分。」</div>
+      <div class="hint">必要時重複說明（這不是記憶測驗）。三分鐘內畫不完就進入步驟 3。</div>
+      <div class="clockwrap" id="clockwrap"><canvas id="bg"></canvas><canvas id="ink"></canvas></div>
+      <div class="tools"><button class="btn btn-ghost" onclick="undo()">復原一筆</button><button class="btn btn-ghost" onclick="clearInk()">全部清除</button><span class="small" id="clockTimer" style="align-self:center"></span></div>
+      <div class="hint">評分（0 或 2 分）：所有數字都有、順序正確、位置約略正確（12、3、6、9 在上下左右）、無漏無重複；指針指向 11 和 2。畫不出來或拒畫＝0。</div>
+      <div class="options">
+        <div class="opt" data-clock="2" onclick="pickClock(2, this)"><span class="dot"></span>正常時鐘（2 分）</div>
+        <div class="opt" data-clock="0" onclick="pickClock(0, this)"><span class="dot"></span>異常／畫不出來（0 分）</div>
+      </div>
+    </div>
+
+    <!-- 步驟 3 -->
+    <div class="card">
+      <div class="step">步驟 3</div><div class="label">三個名詞回憶</div>
+      <div class="say">「我要你背下來的三個名詞是什麼？」</div>
+      <div class="hint">不需提示就能自動記起的名詞，請點選：</div>
+      <div class="recall" id="recall"></div>
+    </div>
+
+    <!-- 評分與送出 -->
+    <div class="card">
+      <div class="label">評分</div>
+      <div class="score">
+        <span>名詞回憶（0–3）</span><span class="big" id="sRecall">0</span>
+        <span>畫時鐘（0 或 2）</span><span class="big" id="sClock">–</span>
+        <span><b>總分（0–5）</b></span><span class="big" id="sTotal">–</span>
+      </div>
+      <div class="hint mt">總分 &lt; 3 可視為失智篩檢陽性；若希望更敏感，以 &lt; 4 為分界點建議進一步評估。</div>
+      <div class="row mt"><input class="text" id="examiner" placeholder="施測者（姓名或代號）"><input class="text" id="note" placeholder="備註（選填）"></div>
+      <div class="nav"><a class="btn btn-ghost" href="bind.html">回綁定頁</a><button class="btn btn-gold" id="submitBtn" onclick="submitAll()">儲存紀錄 ✓</button></div>
+    </div>
+  </div>
+  <p class="footer">Mini-Cog© S. Borson。本頁為施測紀錄之電子化（院內臨床使用）；題目與評分依中文版 v.01.19.16 及本院 CRF V1（2024-05-06）。研究用途或修改前須取得作者同意。</p>
+</div>
+
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+<script>
+const { $, jsonp, session, submit } = COG;
+const WORDS = [['香蕉','朝陽','椅子'],['領袖','季節','桌子'],['村莊','廚房','嬰兒'],['河流','國家','手指'],['船長','花園','照片'],['女兒','天堂','高山']];
+let KEY = '', ver = Math.floor(Math.random() * 6), patient = null, recall = [false, false, false], clockScore = null, strokes = [], cur = null, clockStart = null, timerId = null;
+
+function alertMsg(type, msg) { const a = $('alert'); a.className = 'alert show ' + type; a.textContent = msg; if (type === 'ok') setTimeout(() => a.classList.remove('show'), 5000); }
+function toggle(el) { el.classList.toggle('sel'); }
+async function unlock() {
+  const k = $('key').value.trim() || session.staffKey();
+  if (!k) return alertMsg('err', '請輸入通行碼');
+  try {
+    const r = await jsonp({ action: 'role', key: k }, 15000);
+    if (!r || !r.role) return alertMsg('err', '通行碼不正確');
+    KEY = k; session.setStaffKey(k);
+    $('keyCard').style.display = 'none'; $('main').style.display = 'block';
+    renderVer(); renderRecall(); initCanvas(); loadBound();
+  } catch (e) { alertMsg('err', '連線失敗：' + e.message); }
+}
+async function loadBound() {
+  if (!session.token()) { $('boundInfo').textContent = '這台平板目前沒有綁定病人，請用下方搜尋選擇。'; return; }
+  let d = null;
+  try { d = await jsonp({ action: 'lookupTablet', token: session.token(), key: KEY }, 20000); } catch (e) {}
+  if (d && d.ok && d.pk) { window._bound = d; $('boundInfo').innerHTML = '這台平板綁定的病人：<b>' + (d.fullName || d.name) + '</b>（預定手術 ' + (d.surgeryDate || '未排') + '）　<button class="btn btn-primary" style="min-height:40px;padding:4px 14px;font-size:15px" onclick="useBound()">就是這位</button>'; }
+  else $('boundInfo').textContent = '這台平板目前沒有有效綁定，請用下方搜尋選擇。';
+}
+function useBound() { const d = window._bound; choose({ pk: d.pk, name: d.fullName || d.name, gender: d.gender, age: d.age, scheduledDate: d.surgeryDate }); }
+async function search() {
+  const q = $('q').value.trim(); if (!q) return;
+  $('results').innerHTML = '<span class="small">搜尋中…</span>';
+  try {
+    const r = await jsonp({ action: 'searchPatients', key: KEY, q });
+    if (r.error) return $('results').innerHTML = '<span class="small">' + r.error + '</span>';
+    if (!r.list.length) return $('results').innerHTML = '<span class="small">找不到</span>';
+    $('results').innerHTML = r.list.map(p => `<div class="pt"><div class="info"><b>${p.name}</b> ${p.gender || ''} ${p.age ? p.age + ' 歲' : ''}<small>${p.surgery || ''} · 預定 ${p.scheduledDate || '未排'} · ${p.surgeryStatus || ''}</small></div><button class="btn btn-primary" onclick='choose(${JSON.stringify(p).replace(/'/g, "&#39;")})'>選這位</button></div>`).join('');
+  } catch (e) { $('results').innerHTML = '<span class="small">連線失敗：' + e.message + '</span>'; }
+}
+function choose(p) { patient = p; $('results').innerHTML = ''; $('q').value = ''; $('chosen').style.display = 'block'; $('chosen').innerHTML = '施測對象：<strong>' + p.name + '</strong>（' + (p.gender || '') + ' ' + (p.age ? p.age + ' 歲' : '') + '，預定手術 ' + (p.scheduledDate || '未排') + '）'; }
+
+function renderVer() {
+  $('ver').innerHTML = WORDS.map((_, i) => `<button class="btn btn-ghost ${i === ver ? 'sel' : ''}" onclick="setVer(${i})">第 ${i + 1} 版</button>`).join('');
+  $('words').innerHTML = WORDS[ver].map(w => `<div class="w">${w}</div>`).join('');
+}
+function setVer(i) { ver = i; recall = [false, false, false]; renderVer(); renderRecall(); }
+function renderRecall() {
+  $('recall').innerHTML = WORDS[ver].map((w, i) => `<div class="opt ${recall[i] ? 'sel' : ''}" onclick="toggleRecall(${i}, this)"><span class="dot"></span>${w}</div>`).join('');
+  score();
+}
+function toggleRecall(i, el) { recall[i] = !recall[i]; el.classList.toggle('sel', recall[i]); score(); }
+function pickClock(v, el) { clockScore = v; document.querySelectorAll('[data-clock]').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); score(); }
+function score() {
+  const r = recall.filter(Boolean).length;
+  $('sRecall').textContent = r; $('sClock').textContent = clockScore == null ? '–' : clockScore;
+  $('sTotal').textContent = clockScore == null ? '–' : r + clockScore;
+}
+
+// ---- 畫時鐘 canvas ----
+let bg, ink, ctx, W;
+function initCanvas() {
+  bg = $('bg'); ink = $('ink'); const wrap = $('clockwrap');
+  const dpr = window.devicePixelRatio || 1; W = wrap.clientWidth;
+  [bg, ink].forEach(c => { c.width = W * dpr; c.height = W * dpr; c.getContext('2d').scale(dpr, dpr); });
+  const b = bg.getContext('2d'); b.clearRect(0, 0, W, W); b.strokeStyle = '#8A8580'; b.lineWidth = 3; b.beginPath(); b.arc(W / 2, W / 2, W * 0.42, 0, Math.PI * 2); b.stroke();
+  ctx = ink.getContext('2d'); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 4;
+  const pos = ev => { const r = ink.getBoundingClientRect(); const p = ev.touches ? ev.touches[0] : ev; return [(p.clientX - r.left) * (W / r.width), (p.clientY - r.top) * (W / r.height)]; };
+  const down = ev => { ev.preventDefault(); if (!clockStart) startClockTimer(); cur = [pos(ev)]; };
+  const move = ev => { if (!cur) return; ev.preventDefault(); cur.push(pos(ev)); redraw(); };
+  const up = () => { if (cur) { strokes.push(cur); cur = null; redraw(); } };
+  ink.addEventListener('touchstart', down, { passive: false }); ink.addEventListener('touchmove', move, { passive: false }); ink.addEventListener('touchend', up);
+  ink.addEventListener('mousedown', down); ink.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+}
+function redraw() { ctx.clearRect(0, 0, W, W); strokes.concat(cur ? [cur] : []).forEach(s => { ctx.beginPath(); s.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); if (s.length === 1) ctx.lineTo(s[0][0] + .1, s[0][1]); ctx.stroke(); }); }
+function undo() { strokes.pop(); redraw(); }
+function clearInk() { strokes = []; redraw(); }
+function startClockTimer() { clockStart = Date.now(); timerId = setInterval(() => { const s = Math.floor((Date.now() - clockStart) / 1000); $('clockTimer').textContent = '已畫 ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + (s >= 180 ? '（已超過 3 分鐘）' : ''); }, 1000); }
+function clockPng() {
+  if (!strokes.length) return '';
+  const c = document.createElement('canvas'); c.width = 600; c.height = 600; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 600, 600); g.drawImage(bg, 0, 0, 600, 600); g.drawImage(ink, 0, 0, 600, 600);
+  return c.toDataURL('image/png');
+}
+
+async function submitAll() {
+  if (!patient) return alertMsg('err', '請先選擇病人');
+  if (clockScore == null) return alertMsg('err', '請先評畫時鐘分數（0 或 2）');
+  $('submitBtn').disabled = true;
+  const r = recall.filter(Boolean).length;
+  const res = await submit({ action: 'submitMiniCog', key: KEY, pk: patient.pk, wordVersion: '第' + (ver + 1) + '版', recall: r, clock: clockScore, total: r + clockScore,
+    clockPng: clockPng(), examiner: $('examiner').value.trim(), note: ($('fail3').classList.contains('sel') ? '複誦失敗三次；' : '') + $('note').value.trim() });
+  alertMsg('ok', (res === 'queued' ? '目前離線，紀錄已暫存，有網路時自動送出。' : '已儲存。') + ' 總分 ' + (r + clockScore) + '。');
+  setTimeout(() => location.reload(), 1800);
+}
+(function init() { const m = location.hash.match(/k=([^&]+)/); if (m) $('key').value = decodeURIComponent(m[1]); if (m || session.staffKey()) unlock(); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>翻翻樂</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  .container { max-width: 900px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 6px 0 14px; }
+  .top .stat { font-size: 18px; color: var(--ink-soft); }
+  .top .stat b { color: var(--teal); font-family: var(--font-serif); font-size: 22px; }
+  .lvl { display: flex; gap: 8px; }
+  .lvl button { min-height: 48px; padding: 6px 16px; font-size: 17px; }
+  .lvl button.sel { background: var(--teal); color: #fff; border-color: var(--teal); }
+  #board { display: grid; gap: 10px; margin: 0 auto; width: 100%; max-width: 720px; }
+  .tile { aspect-ratio: 1; border-radius: 14px; border: 2px solid var(--border-strong); background: var(--teal); display: flex; align-items: center; justify-content: center; font-size: clamp(34px, 9vw, 64px); cursor: pointer; transition: transform .25s, background .25s; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; position: relative; }
+  .tile::after { content: '❀'; color: rgba(255,255,255,.35); font-size: .6em; }
+  .tile.open, .tile.done { background: var(--paper); }
+  .tile.open::after, .tile.done::after { content: attr(data-e); color: inherit; font-size: 1em; }
+  .tile.done { border-color: var(--success); background: var(--success-bg); transform: scale(.94); }
+  .tile.open { transform: scale(1.04); border-color: var(--gold); }
+  .win { text-align: center; padding: 30px 10px; }
+  .win h2 { font-family: var(--font-serif); font-size: 30px; color: var(--teal); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header" style="padding:10px 0 4px"><h1 style="font-size:28px">翻翻樂</h1><p class="sub">每次翻開兩張，找出一樣的圖案。</p></div>
+  <div class="top">
+    <div class="stat">配對 <b id="pairs">0</b>／<span id="total">0</span>　翻了 <b id="moves">0</b> 次</div>
+    <div class="lvl">
+      <button class="btn btn-ghost sel" data-l="easy" onclick="setLevel('easy')">簡單</button>
+      <button class="btn btn-ghost" data-l="mid" onclick="setLevel('mid')">中等</button>
+      <button class="btn btn-ghost" data-l="hard" onclick="setLevel('hard')">挑戰</button>
+    </div>
+  </div>
+  <div id="board"></div>
+  <div id="win" class="win" style="display:none">
+    <h2>全部配對成功！</h2>
+    <p class="muted" id="winMsg"></p>
+    <div class="nav" style="justify-content:center"><button class="btn btn-primary btn-xl" onclick="start()">再玩一局</button></div>
+  </div>
+  <div class="nav"><a class="btn btn-ghost" href="index.html">← 遊戲選單</a><button class="btn btn-gold" onclick="start()">重新開始</button></div>
+</div>
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+<script>
+const { $, shuffle, funLogger } = COG;
+const POOL = ['🍎','🍊','🍌','🍉','🍇','🍓','🥕','🌽','🌻','🌹','🌷','🍀','🐱','🐶','🐰','🐢','🐟','🦋','☀️','🌙','⭐','☂️','🎈','🎁','🚗','⛵','🏠','🔑','📚','🎵','🧸','🍵'];
+const LEVELS = { easy: { cols: 3, pairs: 6 }, mid: { cols: 4, pairs: 8 }, hard: { cols: 5, pairs: 10 } };
+let level = 'easy', open = [], lock = false, matched = 0, moves = 0, t0 = 0;
+const log = funLogger('翻翻樂');
+try { level = localStorage.getItem('fun-match-level') || 'easy'; } catch (e) {}
+
+function setLevel(l) { level = l; try { localStorage.setItem('fun-match-level', l); } catch (e) {} document.querySelectorAll('.lvl button').forEach(b => b.classList.toggle('sel', b.dataset.l === l)); start(); }
+function start() {
+  const L = LEVELS[level];
+  const pick = shuffle(POOL.slice()).slice(0, L.pairs);
+  const tiles = shuffle(pick.concat(pick));
+  open = []; lock = false; matched = 0; moves = 0; t0 = Date.now();
+  $('pairs').textContent = 0; $('total').textContent = L.pairs; $('moves').textContent = 0;
+  $('win').style.display = 'none';
+  const b = $('board'); b.style.display = 'grid'; b.style.gridTemplateColumns = `repeat(${L.cols}, 1fr)`;
+  b.innerHTML = tiles.map((e, i) => `<div class="tile" data-e="${e}" data-i="${i}" onclick="flip(this)"></div>`).join('');
+}
+function flip(el) {
+  if (lock || el.classList.contains('open') || el.classList.contains('done')) return;
+  el.classList.add('open'); open.push(el);
+  if (open.length < 2) return;
+  moves++; $('moves').textContent = moves; lock = true;
+  const [a, b] = open;
+  if (a.dataset.e === b.dataset.e) {
+    setTimeout(() => { a.classList.replace('open', 'done'); b.classList.replace('open', 'done'); open = []; lock = false; matched++; $('pairs').textContent = matched; if (matched === LEVELS[level].pairs) win(); }, 350);
+  } else {
+    setTimeout(() => { a.classList.remove('open'); b.classList.remove('open'); open = []; lock = false; }, 900);
+  }
+}
+function win() {
+  log.round();
+  $('board').style.display = 'none';
+  $('winMsg').textContent = '翻了 ' + moves + ' 次，用時 ' + COG.fmtTime((Date.now() - t0) / 1000) + '。';
+  $('win').style.display = 'block';
+}
+document.querySelectorAll('.lvl button').forEach(b => b.classList.toggle('sel', b.dataset.l === level));
+start();
+</script>
+</body>
+</html>

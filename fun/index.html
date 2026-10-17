@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>玩遊戲</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  .games { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-top: 16px; }
+  .g { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 18px 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--paper); text-decoration: none; color: var(--ink); min-height: 200px; }
+  .g:active { transform: scale(.98); }
+  .g .ico { font-size: 60px; line-height: 1; }
+  .g b { font-size: 24px; font-weight: 600; }
+  .g small { color: var(--ink-faint); font-size: 16px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="tag">休閒時間</div>
+    <h1>玩遊戲</h1>
+    <p class="sub">想玩多久就玩多久，隨時可以回首頁。</p>
+    <div class="divider"></div>
+  </div>
+  <div class="games">
+    <a class="g" href="match.html"><span class="ico">🃏</span><b>翻翻樂</b><small>翻開兩張一樣的圖案<br>把全部配成對</small></a>
+    <a class="g" href="onet.html"><span class="ico">🔗</span><b>連連看</b><small>點兩個一樣的圖案<br>把它們消掉</small></a>
+    <a class="g" href="slide.html"><span class="ico">🔢</span><b>數字排排站</b><small>滑動方塊<br>把數字排回順序</small></a>
+  </div>
+  <p class="center mt" style="margin-top:30px"><a class="btn btn-ghost btn-xl" href="../index.html" style="min-width:240px">回首頁</a></p>
+</div>
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+</body>
+</html>

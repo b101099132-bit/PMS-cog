@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>圖樣記憶</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  .container { max-width: 720px; }
+  .stage { display: none; } .stage.active { display: block; }
+  .msg { text-align: center; font-size: 24px; min-height: 40px; margin: 10px 0 14px; color: var(--ink); font-weight: 500; }
+  .msg.sub { font-size: 18px; color: var(--ink-soft); font-weight: 400; }
+  #grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: min(88vw, 480px); margin: 0 auto; }
+  .c { aspect-ratio: 1; border-radius: 12px; background: var(--paper); border: 2px solid var(--border-strong); transition: background .12s, transform .12s; -webkit-tap-highlight-color: transparent; touch-action: manipulation; display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-size: 26px; color: #fff; }
+  .c.on { background: var(--teal); border-color: var(--teal); transform: scale(1.06); }
+  .c.pick { background: var(--gold); border-color: var(--gold); }
+  .c.bad { background: var(--danger); border-color: var(--danger); }
+  .c.disabled { pointer-events: none; }
+  .meta { display: flex; justify-content: space-between; font-size: 16px; color: var(--ink-faint); margin: 12px 0; }
+  .demo-tag { display: inline-block; background: var(--gold-tint); color: var(--gold); border: 1px solid #E8D8C0; border-radius: 99px; padding: 2px 12px; font-size: 15px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header" style="padding:10px 0 4px"><div class="tag">認知測驗 1／3</div><h1 style="font-size:28px">圖樣記憶</h1></div>
+
+  <div class="stage active" id="intro">
+    <div class="notice"><strong>玩法</strong><br>方格會<strong>一個接一個亮起來</strong>，請記住亮起來的位置和順序。全部亮完後，請<strong>依照同樣的順序</strong>點回去。<br>先做一題練習，練習不計分。</div>
+    <div class="nav"><a class="btn btn-ghost" href="../index.html">回首頁</a><button class="btn btn-primary" onclick="startDemo()">開始練習 →</button></div>
+  </div>
+
+  <div class="stage" id="play">
+    <div class="center"><span class="demo-tag" id="demoTag">練習</span></div>
+    <div class="msg" id="msg">請注意看</div>
+    <div id="grid"></div>
+    <div class="meta"><span id="lvl"></span><span id="trialNo"></span></div>
+    <div class="nav" id="demoNav" style="display:none"><button class="btn btn-ghost" onclick="startDemo()">再練習一次</button><button class="btn btn-primary" onclick="startReal()">開始正式測驗 →</button></div>
+  </div>
+
+  <div class="stage" id="done">
+    <div class="thanks"><div class="ico">✓</div><h2>這一項完成了</h2><p class="muted" id="doneMsg"></p>
+      <div class="mt"><a class="btn btn-primary btn-xl" id="nextLink" href="../index.html" style="min-width:260px">回首頁</a></div></div>
+  </div>
+</div>
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+<script>
+const { $, finishTest, rng } = COG;
+const N = 25;
+let demo = true, k = 3, seq = [], input = [], trials = [], wrongStreak = 0, maxSpan = 0, t0 = 0, seed = Date.now() % 1e9, rand = rng(seed), busy = false;
+const MAX_TRIALS = 10, MAX_K = 9;
+
+function show(id) { document.querySelectorAll('.stage').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
+function build() { $('grid').innerHTML = Array.from({ length: N }, (_, i) => `<div class="c" id="g${i}" onclick="tap(${i})"></div>`).join(''); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setMsg(t, sub) { $('msg').textContent = t; $('msg').className = 'msg' + (sub ? ' sub' : ''); }
+
+function startDemo() { demo = true; k = 2; $('demoTag').style.display = ''; $('demoNav').style.display = 'none'; show('play'); build(); runTrial(); }
+function startReal() { demo = false; k = 3; trials = []; wrongStreak = 0; maxSpan = 0; t0 = Date.now(); $('demoTag').style.display = 'none'; $('demoNav').style.display = 'none'; show('play'); build(); runTrial(); }
+
+async function runTrial() {
+  busy = true; input = [];
+  $('lvl').textContent = '這一題 ' + k + ' 格'; $('trialNo').textContent = demo ? '' : '第 ' + (trials.length + 1) + ' 題';
+  // 產生不重複序列
+  const pool = Array.from({ length: N }, (_, i) => i); seq = [];
+  for (let i = 0; i < k; i++) seq.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
+  document.querySelectorAll('.c').forEach(c => { c.className = 'c disabled'; c.textContent = ''; });
+  setMsg('請注意看');
+  await sleep(900);
+  for (const i of seq) { $('g' + i).classList.add('on'); await sleep(700); $('g' + i).classList.remove('on'); await sleep(300); }
+  setMsg('請依照剛才的順序點回去');
+  document.querySelectorAll('.c').forEach(c => c.classList.remove('disabled'));
+  busy = false;
+}
+async function tap(i) {
+  if (busy) return;
+  const el = $('g' + i);
+  input.push({ i, t: Date.now() });
+  el.classList.add('pick'); el.textContent = input.length;
+  const pos = input.length - 1;
+  if (seq[pos] !== i) { busy = true; el.classList.replace('pick', 'bad'); await sleep(600); return end(false); }
+  if (input.length === seq.length) { busy = true; await sleep(400); return end(true); }
+}
+async function end(ok) {
+  setMsg(ok ? '答對了！' : '不對，沒關係', false);
+  if (demo) {
+    await sleep(600);
+    setMsg(ok ? '練習完成，準備開始正式測驗' : '練習完成（正式測驗會從簡單的開始）', true);
+    document.querySelectorAll('.c').forEach(c => c.classList.add('disabled'));
+    $('demoNav').style.display = 'flex'; return;
+  }
+  trials.push({ k, ok, seq: seq.slice(), input: input.map(x => x.i), rt: input.length ? input[input.length - 1].t - input[0].t : 0 });
+  if (ok) { maxSpan = Math.max(maxSpan, k); wrongStreak = 0; k = Math.min(MAX_K, k + 1); } else { wrongStreak++; k = Math.max(2, k - 1); }
+  const stop = wrongStreak >= 2 || trials.length >= MAX_TRIALS || (ok && maxSpan >= MAX_K);
+  await sleep(700);
+  if (!stop) return runTrial();
+  const score = Math.max(0, Math.min(100, (maxSpan - 2) / (MAX_K - 2) * 100));
+  const seconds = (Date.now() - t0) / 1000;
+  const r = await finishTest('memory', score, { seed, maxSpan, trials, version: 1 }, seconds);
+  $('doneMsg').textContent = (r === 'queued' ? '目前沒有網路，結果已先存在平板。' : '結果已送出。') + ' 用時 ' + COG.fmtTime(seconds) + '。';
+  const ph = COG.phaseFromUrl(); if (ph) $('nextLink').href = '../index.html?phase=' + ph;
+  show('done');
+}
+</script>
+</body>
+</html>

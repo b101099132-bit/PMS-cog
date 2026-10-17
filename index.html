@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="康復小幫手">
+<meta name="robots" content="noindex">
+<title>康復小幫手</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/pms.css">
+<style>
+  .big2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .big2 .btn-xl { flex-direction: column; gap: 6px; min-height: 150px; }
+  .big2 .btn-xl .ico { font-size: 44px; }
+  .big2 .btn-xl small { font-size: 16px; font-weight: 400; opacity: .9; }
+  .badge { display: inline-block; background: var(--gold); color: #fff; border-radius: 99px; font-size: 14px; padding: 2px 10px; margin-left: 6px; vertical-align: middle; }
+  .phase-line { font-size: 17px; color: var(--ink-soft); margin: 4px 0 14px; }
+  .staff-link { position: fixed; right: 12px; bottom: 10px; font-size: 13px; color: var(--ink-faint); text-decoration: none; opacity: .6; }
+  @media (max-width: 560px) { .big2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="tag">心臟加速康復團隊</div>
+    <h1>康復小幫手</h1>
+    <p class="sub" id="greet">　</p>
+    <div class="divider"></div>
+  </div>
+
+  <div id="alert" class="alert"></div>
+
+  <!-- 尚未綁定 -->
+  <div id="unbound" style="display:none">
+    <div class="notice"><strong>這台平板還沒有設定好。</strong><br>請護理師到「工作人員」頁面完成綁定後，再交給您使用。您現在仍然可以先玩遊戲。</div>
+    <div class="big2">
+      <a class="btn btn-gold btn-xl" href="fun/index.html"><span class="ico">🎲</span>玩遊戲<small>打發時間、動動腦</small></a>
+      <a class="btn btn-ghost btn-xl" href="staff/bind.html"><span class="ico">🔑</span>工作人員<small>綁定病人</small></a>
+    </div>
+  </div>
+
+  <!-- 已綁定 -->
+  <div id="bound" style="display:none">
+    <div class="phase-line" id="phaseLine"></div>
+    <div class="card" style="padding:18px 20px">
+      <div class="label">今天請您完成 <span class="badge" id="todoCount">0</span></div>
+      <div class="hint" id="todoHint">完成一項就會打勾，不用一次做完。</div>
+      <div id="todos"></div>
+    </div>
+    <div class="big2">
+      <a class="btn btn-gold btn-xl" href="fun/index.html"><span class="ico">🎲</span>玩遊戲<small>隨時可以玩</small></a>
+      <button class="btn btn-ghost btn-xl" onclick="refresh(true)"><span class="ico">🔄</span>重新整理<small id="syncNote">　</small></button>
+    </div>
+  </div>
+
+  <p class="footer">心臟外科手術病人管理系統 · 康復小幫手<br>如有任何不舒服，請隨時告訴護理師。</p>
+</div>
+<a class="staff-link" href="staff/bind.html">工作人員</a>
+
+<script src="_shared/config.js"></script>
+<script src="_shared/core.js"></script>
+<script>
+const { $, session, PHASE_LABEL } = COG;
+
+// 各時點要做的項目（之後加入 EQ-5D、三個測驗時在這裡補）
+const QOR = { id: 'qor15', ico: '📋', title: '恢復狀況問卷', sub: '15 題，約 3 分鐘', href: 'qor15.html' };
+const TESTS = [
+  { id: 'test:memory', ico: '🟦', title: '圖樣記憶', sub: '記住亮起的格子，約 3 分鐘', href: 'tests/memory.html' },
+  { id: 'test:groceries', ico: '🛒', title: '買菜', sub: '記住清單、點對商品，約 4 分鐘', href: 'tests/groceries.html' },
+  { id: 'test:lines', ico: '🧩', title: '接線', sub: '把線接回來，約 5 分鐘', href: 'tests/lines.html' },
+];
+const PLAN = {
+  T0: [QOR, ...TESTS],
+  T1: [QOR, ...TESTS],
+  T2: [QOR, ...TESTS],
+  T3: [ { id: 'eq5d', ico: '💚', title: '健康狀況問卷', sub: '5 題 + 1 個刻度，約 2 分鐘', href: 'eq5d.html' },
+        { id: 'prems', ico: '💬', title: '照護經驗問卷', sub: '出院前，約 5 分鐘', href: (window.COG_CONFIG||{}).PREMS_URL || 'https://b101099132-bit.github.io/PMS-csc/survey.html', external: true },
+        ...TESTS ],
+};
+
+function alertMsg(type, msg) { const a = $('alert'); a.className = 'alert show ' + type; a.textContent = msg; }
+
+async function refresh(manual) {
+  if (!session.token()) { $('unbound').style.display = 'block'; $('bound').style.display = 'none'; $('greet').textContent = '歡迎使用'; return; }
+  $('bound').style.display = 'block'; $('unbound').style.display = 'none';
+  const d = await session.lookup();
+  if (!d || !d.ok) {
+    if (d && d.reason === 'unbound') { session.clear(); return refresh(); }
+    alertMsg('warn', '目前沒有網路，先顯示上次的內容；您填的資料會先存在平板，有網路時自動送出。');
+    render({ phase: 'T0', done: { tests: {} }, name: (session.patient() || {}).name || '', offline: true });
+    return;
+  }
+  if (d.offline) alertMsg('warn', '目前沒有網路，顯示的是上次連線時的內容。'); else $('alert').classList.remove('show');
+  render(d);
+}
+
+function render(d) {
+  $('greet').textContent = (d.name ? d.name + '，' : '') + '您好';
+  const ph = d.phase || 'T0';
+  $('phaseLine').textContent = '今天是 ' + (ph === 'T0' ? '手術前' : '術後第 ' + (d.pod != null ? d.pod : '?') + ' 天') + '（' + PHASE_LABEL[ph] + '階段）';
+  const items = PLAN[ph] || [];
+  const done = d.done || { tests: {} };
+  let remain = 0;
+  $('todos').innerHTML = items.map(it => {
+    const isDone = it.id === 'qor15' ? done.qor15 : it.id === 'eq5d' ? done.eq5d : it.id.startsWith('test:') ? !!done.tests[it.id.slice(5)] : false;
+    if (!isDone && !it.soon) remain++;
+    const href = it.external ? it.href : it.href + '?phase=' + ph;
+    const cls = 'todo' + (isDone ? ' done' : '');
+    const chk = isDone ? '✓ 已完成' : it.soon ? '即將開放' : '點這裡開始 ›';
+    return (isDone || it.soon) ? `<div class="${cls}"><span class="ico">${it.ico}</span><span class="t"><b>${it.title}</b><small>${it.sub}</small></span><span class="chk">${chk}</span></div>`
+                               : `<a class="${cls}" href="${href}"><span class="ico">${it.ico}</span><span class="t"><b>${it.title}</b><small>${it.sub}</small></span><span class="chk">${chk}</span></a>`;
+  }).join('') || '<div class="muted">今天沒有需要填寫的項目，可以去玩遊戲。</div>';
+  $('todoCount').textContent = remain;
+  $('todoHint').textContent = remain ? '完成一項就會打勾，不用一次做完。' : '今天的項目都完成了，謝謝您！';
+  const q = COG.queueLength();
+  $('syncNote').textContent = q ? '有 ' + q + ' 筆資料等待上傳' : '';
+}
+
+document.addEventListener('cog-queue', () => refresh());
+refresh();
+</script>
+</body>
+</html>

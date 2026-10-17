@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>健康狀況問卷</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/pms.css">
+<style>
+  .one { display: none; } .one.active { display: block; }
+  .qtext { font-size: 24px; font-weight: 500; margin: 4px 0 14px; }
+  .vas { display: flex; gap: 18px; align-items: stretch; margin-top: 10px; }
+  .vas .scaleV { flex: 1; display: grid; grid-template-columns: repeat(11, 1fr); gap: 5px; }
+  .vas .scaleV button { min-height: 52px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--paper); font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--ink-soft); }
+  .vas .scaleV button.sel { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .fine { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-top: 10px; }
+  .fine button { min-height: 48px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--paper); font-size: 16px; color: var(--ink-soft); }
+  .fine button.sel { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .vasval { text-align: center; font-family: var(--font-serif); font-size: 44px; color: var(--teal); margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="progress"><div class="row"><span id="pText">第 1 題，共 6 題</span><strong id="pPct">0%</strong></div><div class="track"><div class="fill" id="pFill"></div></div></div>
+  <div class="header" style="padding-top:8px"><div class="tag">EQ-5D-5L · 健康狀況</div><h1>健康狀況問卷</h1><p class="sub">請依照您<u>今天</u>的狀況回答</p></div>
+  <div id="alert" class="alert"></div>
+
+  <div class="one active" id="qpage">
+    <div class="card" id="qcard">
+      <div class="qnum muted" id="qnum"></div>
+      <div class="qtext" id="qtext"></div>
+      <div class="options" id="opts"></div>
+      <div class="err-msg">請選擇一個答案</div>
+    </div>
+    <div class="nav"><button class="btn btn-ghost" onclick="prev()" id="prevBtn">回首頁</button><button class="btn btn-primary" onclick="next()" id="nextBtn">下一題 →</button></div>
+  </div>
+
+  <div class="one" id="vaspage">
+    <div class="card">
+      <div class="qtext">您覺得<u>今天</u>的健康狀況有多好？</div>
+      <div class="hint">100 代表您想像中<strong>最好</strong>的健康狀況，0 代表<strong>最差</strong>。先選大概的位置（十位數），再選個位數微調。</div>
+      <div class="vas"><div class="scaleV" id="tens"></div></div>
+      <div class="fine" id="ones"></div>
+      <div class="vasval" id="vasval">—</div>
+      <div class="scale-ends"><span>最差 0</span><span>最好 100</span></div>
+    </div>
+    <div class="nav"><button class="btn btn-ghost" onclick="go(4)">← 上一題</button><button class="btn btn-gold" onclick="submitAll()" id="submitBtn">送出問卷 ✓</button></div>
+  </div>
+
+  <div class="one" id="donePage">
+    <div class="thanks"><div class="ico">✓</div><h2>謝謝您，問卷完成了</h2><p class="muted" id="doneMsg"></p>
+      <div class="mt"><a class="btn btn-primary btn-xl" id="homeLink" href="index.html" style="min-width:260px">回首頁</a></div></div>
+  </div>
+
+  <p class="footer">EQ-5D-5L © EuroQol Research Foundation。本頁為院內品質改善用暫行版本；正式使用前須向 EuroQol 註冊並換用官方繁體中文（台灣）版題目文字。</p>
+</div>
+<script src="_shared/config.js"></script>
+<script src="_shared/core.js"></script>
+<script>
+const { $, session, submit, phaseFromUrl } = COG;
+// 暫行措辭（結構依 EQ-5D-5L：5 面向 × 5 級）；正式版請換成 EuroQol 授權的繁體中文（台灣）文字
+const DIMS = [
+  { key: 'mo', title: '行動能力', opts: ['我四處走動沒有問題', '我四處走動有一點問題', '我四處走動有中度問題', '我四處走動有嚴重問題', '我無法四處走動'] },
+  { key: 'sc', title: '自我照顧', opts: ['我自己洗澡或穿衣沒有問題', '我自己洗澡或穿衣有一點問題', '我自己洗澡或穿衣有中度問題', '我自己洗澡或穿衣有嚴重問題', '我無法自己洗澡或穿衣'] },
+  { key: 'ua', title: '日常活動（例如工作、讀書、家事、家庭或休閒活動）', opts: ['我進行日常活動沒有問題', '我進行日常活動有一點問題', '我進行日常活動有中度問題', '我進行日常活動有嚴重問題', '我無法進行日常活動'] },
+  { key: 'pd', title: '疼痛／不舒服', opts: ['我沒有疼痛或不舒服', '我有一點疼痛或不舒服', '我有中度疼痛或不舒服', '我有嚴重疼痛或不舒服', '我有極度疼痛或不舒服'] },
+  { key: 'ad', title: '焦慮／憂鬱', opts: ['我不焦慮或憂鬱', '我有一點焦慮或憂鬱', '我有中度焦慮或憂鬱', '我有嚴重焦慮或憂鬱', '我有極度焦慮或憂鬱'] },
+];
+const phase = phaseFromUrl() || 'T3';
+const ans = {}; let idx = 0, tens = null, ones = 0, t0 = Date.now();
+if (!session.token()) { $('alert').className = 'alert show warn'; $('alert').textContent = '這台平板尚未綁定病人，填寫的資料無法對應到您。'; }
+function show(id) { document.querySelectorAll('.one').forEach(o => o.classList.remove('active')); $(id).classList.add('active'); window.scrollTo(0, 0); }
+function progress(n) { $('pText').textContent = n >= 5 ? '第 6 題，共 6 題' : '第 ' + (n + 1) + ' 題，共 6 題'; $('pPct').textContent = Math.round(n / 6 * 100) + '%'; $('pFill').style.width = (n / 6 * 100) + '%'; }
+function go(i) {
+  idx = i; show('qpage'); progress(i);
+  const d = DIMS[i];
+  $('qnum').textContent = '第 ' + (i + 1) + ' 題'; $('qtext').textContent = d.title;
+  $('opts').innerHTML = d.opts.map((t, k) => `<div class="opt ${ans[d.key] === k + 1 ? 'sel' : ''}" onclick="pick(${k + 1}, this)"><span class="dot"></span>${t}</div>`).join('');
+  $('qcard').classList.remove('error');
+  $('prevBtn').textContent = i === 0 ? '回首頁' : '← 上一題';
+}
+function pick(v, el) { ans[DIMS[idx].key] = v; document.querySelectorAll('#opts .opt').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); $('qcard').classList.remove('error'); setTimeout(next, 300); }
+function prev() { if (idx === 0) location.href = 'index.html'; else go(idx - 1); }
+function next() {
+  if (ans[DIMS[idx].key] == null) { $('qcard').classList.add('error'); return; }
+  if (idx < 4) return go(idx + 1);
+  show('vaspage'); progress(5); renderVas();
+}
+function renderVas() {
+  $('tens').innerHTML = Array.from({ length: 11 }, (_, i) => `<button class="${tens === i ? 'sel' : ''}" onclick="setTens(${i})">${i * 10}</button>`).join('');
+  $('ones').innerHTML = Array.from({ length: 10 }, (_, i) => `<button class="${tens != null && ones === i ? 'sel' : ''}" ${tens == null || tens === 10 ? 'disabled' : ''} onclick="setOnes(${i})">+${i}</button>`).join('');
+  $('vasval').textContent = tens == null ? '—' : vas();
+}
+function vas() { return tens === 10 ? 100 : tens * 10 + ones; }
+function setTens(i) { tens = i; if (i === 10) ones = 0; renderVas(); }
+function setOnes(i) { ones = i; renderVas(); }
+async function submitAll() {
+  if (tens == null) { $('vasval').textContent = '請先選擇'; return; }
+  $('submitBtn').disabled = true;
+  const r = await submit(Object.assign({ action: 'submitEq5d', phase, vas: vas() }, ans));
+  $('doneMsg').textContent = r === 'queued' ? '目前沒有網路，您的回答已先存在平板裡，有網路時會自動送出。' : '您的回答已送出。';
+  $('homeLink').href = 'index.html?phase=' + phase;
+  show('donePage'); progress(6); $('pText').textContent = '已完成';
+}
+go(0);
+</script>
+</body>
+</html>

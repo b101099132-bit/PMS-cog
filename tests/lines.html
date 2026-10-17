@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>接線</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  .container { max-width: 720px; }
+  .stage { display: none; } .stage.active { display: block; }
+  .msg { text-align: center; font-size: 22px; min-height: 36px; margin: 8px 0 10px; font-weight: 500; }
+  .msg.sub { font-size: 18px; color: var(--ink-soft); font-weight: 400; }
+  .wrap { display: grid; grid-template-columns: 56px 1fr 56px; grid-template-rows: 56px 1fr 56px; gap: 6px; width: min(92vw, 560px); margin: 0 auto; }
+  .rowbtns, .colbtns { display: grid; gap: 6px; }
+  .rowbtns { grid-template-rows: repeat(var(--n), 1fr); } .colbtns { grid-template-columns: repeat(var(--n), 1fr); }
+  .ab { border: 1px solid var(--border-strong); background: var(--paper); border-radius: 10px; font-size: 26px; color: var(--teal); -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer; }
+  .ab:active { background: var(--teal-tint); }
+  #board { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 6px; background: var(--teal-soft); padding: 6px; border-radius: 14px; }
+  .tile { aspect-ratio: 1; background: var(--paper); border-radius: 8px; border: 1px solid var(--border); }
+  .tile svg { width: 100%; height: 100%; display: block; }
+  .tile.lit { background: var(--success-bg); border-color: var(--success); }
+  .endcap { position: relative; }
+  .meta { display: flex; justify-content: space-between; font-size: 16px; color: var(--ink-faint); margin: 12px auto 0; width: min(92vw, 560px); }
+  .timer { font-family: var(--font-serif); color: var(--gold); font-size: 20px; }
+  .demo-tag { display: inline-block; background: var(--gold-tint); color: var(--gold); border: 1px solid #E8D8C0; border-radius: 99px; padding: 2px 12px; font-size: 15px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header" style="padding:10px 0 4px"><div class="tag">認知測驗 3／3</div><h1 style="font-size:28px">接線</h1></div>
+
+  <div class="stage active" id="intro">
+    <div class="notice"><strong>玩法</strong><br>有一條線從<strong>左邊</strong>連到<strong>右邊</strong>，但格子被打亂了。按格子外面的<strong>箭頭</strong>，可以把<strong>整排</strong>或<strong>整列</strong>往那個方向推一格（推出去的會從另一邊回來）。請把線接回來。<br>先做一題練習，練習不計分。</div>
+    <div class="nav"><a class="btn btn-ghost" href="../index.html">回首頁</a><button class="btn btn-primary" onclick="startDemo()">開始練習 →</button></div>
+  </div>
+
+  <div class="stage" id="play">
+    <div class="center"><span class="demo-tag" id="demoTag">練習</span></div>
+    <div class="msg" id="msg">把線接起來</div>
+    <div class="wrap" id="wrap">
+      <div></div><div class="colbtns" id="top"></div><div></div>
+      <div class="rowbtns" id="left"></div><div id="board"></div><div class="rowbtns" id="right"></div>
+      <div></div><div class="colbtns" id="bottom"></div><div></div>
+    </div>
+    <div class="meta"><span id="trialNo"></span><span id="moves"></span><span class="timer" id="timer"></span></div>
+    <div class="nav" id="demoNav" style="display:none"><button class="btn btn-ghost" onclick="startDemo()">再練習一次</button><button class="btn btn-primary" onclick="startReal()">開始正式測驗 →</button></div>
+    <div class="nav" id="skipNav"><button class="btn btn-ghost" onclick="giveUp()">這題跳過</button></div>
+  </div>
+
+  <div class="stage" id="done">
+    <div class="thanks"><div class="ico">✓</div><h2>這一項完成了</h2><p class="muted" id="doneMsg"></p>
+      <div class="mt"><a class="btn btn-primary btn-xl" id="nextLink" href="../index.html" style="min-width:260px">回首頁</a></div></div>
+  </div>
+</div>
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+<script>
+const { $, finishTest, rng } = COG;
+const PUZZLES = [3, 3, 4, 4, 5];        // 正式 5 題
+const LIMIT = 90;                        // 每題秒
+let demo = true, N = 3, grid = [], moves = 0, puzzleIdx = 0, results = [], tStart = 0, timerId = null, seed, rand, t0 = 0, solvedFlag = false;
+
+function show(id) { document.querySelectorAll('.stage').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
+function setMsg(t, sub) { $('msg').textContent = t; $('msg').className = 'msg' + (sub ? ' sub' : ''); }
+
+// 產生一條從左邊到右邊的路徑；回傳 NxN 陣列，每格為方向字串（如 'WE'、'WS'、'NE'），空格 ''
+function genPath(n) {
+  const g = Array.from({ length: n }, () => Array(n).fill(''));
+  let r = Math.floor(rand() * n), c = 0;
+  const cells = [[r, c]];
+  let prevDir = 'W';          // 進入方向（從左邊進來）
+  while (c < n - 1) {
+    const opts = ['E'];
+    if (r > 0 && !g[r - 1][c] && !cells.some(([a, b]) => a === r - 1 && b === c)) opts.push('N');
+    if (r < n - 1 && !cells.some(([a, b]) => a === r + 1 && b === c)) opts.push('S');
+    // 偏向往右，避免太曲折
+    const d = rand() < 0.55 ? 'E' : opts[Math.floor(rand() * opts.length)];
+    const from = prevDir;
+    g[r][c] = from + d;
+    if (d === 'E') { c++; prevDir = 'W'; } else if (d === 'N') { r--; prevDir = 'S'; } else { r++; prevDir = 'N'; }
+    cells.push([r, c]);
+  }
+  g[r][c] = prevDir + 'E';
+  // 補幾個干擾小段（不連通），增加辨識難度（5×5 才加）
+  if (n >= 5) { for (let k = 0; k < 2; k++) { const rr = Math.floor(rand() * n), cc = Math.floor(rand() * n); if (!g[rr][cc]) g[rr][cc] = ['NS', 'WE', 'NE', 'SW'][Math.floor(rand() * 4)]; } }
+  return g;
+}
+function shiftRow(g, r, dir) { const row = g[r]; if (dir > 0) row.unshift(row.pop()); else row.push(row.shift()); }
+function shiftCol(g, c, dir) { const col = g.map(row => row[c]); if (dir > 0) col.unshift(col.pop()); else col.push(col.shift()); g.forEach((row, i) => row[c] = col[i]); }
+function scramble(g, times) { for (let i = 0; i < times; i++) { if (rand() < 0.5) shiftRow(g, Math.floor(rand() * N), rand() < 0.5 ? 1 : -1); else shiftCol(g, Math.floor(rand() * N), rand() < 0.5 ? 1 : -1); } }
+// 是否已有一條從左邊界 W 口連到右邊界 E 口的連通路徑；回傳連通格集合（供打亮）
+function solvedPath() {
+  const opp = { N: 'S', S: 'N', E: 'W', W: 'E' }, dv = { N: [-1, 0], S: [1, 0], E: [0, 1], W: [0, -1] };
+  for (let r0 = 0; r0 < N; r0++) {
+    if (!grid[r0][0].includes('W')) continue;
+    const seen = new Set(), stack = [[r0, 0]]; let reached = false;
+    while (stack.length) {
+      const [r, c] = stack.pop(); const key = r + ',' + c; if (seen.has(key)) continue; seen.add(key);
+      const t = grid[r][c];
+      if (c === N - 1 && t.includes('E')) reached = true;
+      for (const d of t) { const [dr, dc] = dv[d]; const nr = r + dr, nc = c + dc; if (nr < 0 || nc < 0 || nr >= N || nc >= N) continue; if (grid[nr][nc].includes(opp[d])) stack.push([nr, nc]); }
+    }
+    if (reached) return seen;
+  }
+  return null;
+}
+function tileSvg(t) {
+  const P = { N: '50,0', S: '50,100', E: '100,50', W: '0,50' };
+  const segs = [...t].map(d => `<line x1="50" y1="50" x2="${P[d].split(',')[0]}" y2="${P[d].split(',')[1]}" stroke="#1F5A5A" stroke-width="16" stroke-linecap="round"/>`).join('');
+  return `<svg viewBox="0 0 100 100">${segs}${t ? '<circle cx="50" cy="50" r="9" fill="#1F5A5A"/>' : ''}</svg>`;
+}
+function render() {
+  const lit = solvedPath();
+  $('wrap').style.setProperty('--n', N);
+  $('board').innerHTML = grid.map((row, r) => row.map((t, c) => `<div class="tile ${lit && lit.has(r + ',' + c) ? 'lit' : ''}">${tileSvg(t)}</div>`).join('')).join('');
+  $('left').innerHTML = grid.map((_, r) => `<button class="ab" onclick="mv('r',${r},-1)">◀</button>`).join('');
+  $('right').innerHTML = grid.map((_, r) => `<button class="ab" onclick="mv('r',${r},1)">▶</button>`).join('');
+  $('top').innerHTML = grid[0].map((_, c) => `<button class="ab" onclick="mv('c',${c},-1)">▲</button>`).join('');
+  $('bottom').innerHTML = grid[0].map((_, c) => `<button class="ab" onclick="mv('c',${c},1)">▼</button>`).join('');
+  $('moves').textContent = '移動 ' + moves + ' 次';
+  if (lit) onSolved();
+}
+function mv(kind, i, dir) { if (solvedFlag) return; if (kind === 'r') shiftRow(grid, i, dir); else shiftCol(grid, i, dir); moves++; render(); }
+
+function newPuzzle(n) {
+  N = n; moves = 0; solvedFlag = false;
+  do { grid = genPath(n); scramble(grid, n === 3 ? 3 : n === 4 ? 5 : 7); } while (solvedPath());
+  tStart = Date.now(); setMsg('把線從左邊接到右邊'); startTimer(); render();
+}
+function startTimer() {
+  clearInterval(timerId);
+  const tick = () => { const left = LIMIT - Math.floor((Date.now() - tStart) / 1000); $('timer').textContent = demo ? '' : '剩 ' + Math.max(0, left) + ' 秒'; if (!demo && left <= 0) { clearInterval(timerId); timeUp(); } };
+  tick(); timerId = setInterval(tick, 500);
+}
+function startDemo() { demo = true; seed = Date.now() % 1e9; rand = rng(seed); $('demoTag').style.display = ''; $('demoNav').style.display = 'none'; $('skipNav').style.display = 'none'; $('trialNo').textContent = ''; show('play'); newPuzzle(3); }
+function startReal() { demo = false; seed = Date.now() % 1e9; rand = rng(seed); results = []; puzzleIdx = 0; t0 = Date.now(); $('demoTag').style.display = 'none'; $('demoNav').style.display = 'none'; $('skipNav').style.display = 'flex'; show('play'); nextPuzzle(); }
+function nextPuzzle() { $('trialNo').textContent = '第 ' + (puzzleIdx + 1) + '／' + PUZZLES.length + ' 題'; newPuzzle(PUZZLES[puzzleIdx]); }
+function onSolved() {
+  if (solvedFlag) return; solvedFlag = true; clearInterval(timerId);
+  const sec = (Date.now() - tStart) / 1000;
+  setMsg('接好了！');
+  if (demo) { setTimeout(() => { setMsg('練習完成，準備開始正式測驗', true); $('demoNav').style.display = 'flex'; }, 700); return; }
+  results.push({ n: N, solved: true, sec, moves });
+  setTimeout(advance, 900);
+}
+function timeUp() { if (solvedFlag) return; solvedFlag = true; results.push({ n: N, solved: false, sec: LIMIT, moves }); setMsg('時間到，換下一題', true); setTimeout(advance, 900); }
+function giveUp() { if (demo || solvedFlag) return; solvedFlag = true; clearInterval(timerId); results.push({ n: N, solved: false, sec: (Date.now() - tStart) / 1000, moves, skipped: true }); advance(); }
+async function advance() {
+  puzzleIdx++;
+  if (puzzleIdx < PUZZLES.length) return nextPuzzle();
+  // 分數：每題完成得 (1 - 用時/限時 × 0.5)，未完成 0；加權 3×3=1、4×4=1.5、5×5=2
+  const w = { 3: 1, 4: 1.5, 5: 2 }; let got = 0, tot = 0;
+  results.forEach(r => { tot += w[r.n]; if (r.solved) got += w[r.n] * (1 - 0.5 * Math.min(1, r.sec / LIMIT)); });
+  const score = Math.max(0, Math.min(100, got / tot * 100));
+  const seconds = (Date.now() - t0) / 1000;
+  const r = await finishTest('lines', score, { seed, results, version: 1 }, seconds);
+  $('doneMsg').textContent = (r === 'queued' ? '目前沒有網路，結果已先存在平板。' : '結果已送出。') + ' 完成 ' + results.filter(x => x.solved).length + '／' + PUZZLES.length + ' 題，用時 ' + COG.fmtTime(seconds) + '。';
+  const ph = COG.phaseFromUrl(); if (ph) $('nextLink').href = '../index.html?phase=' + ph;
+  show('done');
+}
+</script>
+</body>
+</html>

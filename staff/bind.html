@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>平板綁定 — 工作人員</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  body { font-size: 17px; }
+  .card .label { font-size: 18px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row .text { flex: 1; }
+  .pt { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: var(--paper); }
+  .pt .info { flex: 1; font-size: 16px; }
+  .pt .info b { font-size: 18px; }
+  .pt .info small { color: var(--ink-faint); display: block; }
+  .pt .btn { min-height: 48px; padding: 8px 18px; font-size: 16px; }
+  .state { background: var(--teal-tint); border: 1px solid #C9D6D6; border-radius: var(--radius-card); padding: 18px 22px; margin-bottom: 16px; }
+  .state h3 { font-family: var(--font-serif); color: var(--teal); font-size: 20px; margin-bottom: 8px; }
+  .state dl { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 16px; }
+  .state dt { color: var(--ink-faint); }
+  .phase { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .phase button { min-height: 46px; padding: 6px 14px; font-size: 16px; }
+  .phase button.sel { background: var(--teal); color: #fff; border-color: var(--teal); }
+  .small { font-size: 14px; color: var(--ink-faint); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td, th { padding: 8px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { color: var(--ink-faint); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="tag">PMS-cog · Staff</div>
+    <h1>病人平板綁定</h1>
+    <p class="sub">把這台平板交給病人前，先在這裡綁定；出院收回時解除。</p>
+    <div class="divider"></div>
+  </div>
+
+  <div id="alert" class="alert"></div>
+
+  <!-- 通行碼 -->
+  <div class="card" id="keyCard">
+    <div class="label">團隊通行碼</div>
+    <div class="hint">與急診收案／恢復室頁相同的通行碼。勾「記住這台裝置」後下次不必再輸入。</div>
+    <div class="row">
+      <input class="text" id="key" type="password" autocapitalize="off" autocomplete="off" placeholder="輸入通行碼">
+      <button class="btn btn-primary" onclick="unlock()">解鎖</button>
+    </div>
+    <label class="opt mt" id="rememberOpt" onclick="toggleRemember(event)"><span class="dot"></span>記住這台裝置</label>
+  </div>
+
+  <div id="main" style="display:none">
+    <!-- 目前狀態 -->
+    <div class="state" id="state"></div>
+
+    <!-- 裝置名稱 -->
+    <div class="card">
+      <div class="label">這台平板的代號</div>
+      <div class="hint">顯示在綁定清單，方便分辨是哪一台（例如 ICU-1、7A-2）。</div>
+      <div class="row">
+        <input class="text" id="device" type="text" autocomplete="off">
+        <button class="btn btn-ghost" onclick="saveDevice()">儲存</button>
+      </div>
+    </div>
+
+    <!-- 搜尋病人 -->
+    <div class="card">
+      <div class="label">搜尋病人並綁定</div>
+      <div class="hint">輸入姓名（可只打一兩個字），從結果點「綁定這位」。綁定後病人端首頁會自動顯示該做的項目。</div>
+      <div class="row">
+        <input class="text" id="q" type="search" autocomplete="off" placeholder="姓名" onkeydown="if(event.key==='Enter')search()">
+        <button class="btn btn-primary" onclick="search()">搜尋</button>
+      </div>
+      <div id="results" class="mt"></div>
+    </div>
+
+    <!-- 全院使用中清單 -->
+    <div class="card">
+      <div class="label">目前使用中的平板 <button class="btn btn-ghost" style="min-height:40px;padding:4px 12px;font-size:14px;float:right" onclick="loadList()">重新整理</button></div>
+      <div id="list" class="mt small">載入中…</div>
+    </div>
+
+    <p class="center mt"><a class="btn btn-gold" href="minicog.html">Mini-Cog 施測紀錄</a>　<a class="btn btn-ghost" href="../index.html">回病人首頁</a></p>
+  </div>
+
+  <p class="footer">心臟外科手術病人管理系統 PMS-cog · 工作人員頁面 · 資料寫入「平板綁定」工作表</p>
+</div>
+
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+<script>
+const { $, jsonp, session, deviceId } = COG;
+let KEY = '';
+let remember = true;
+
+function alertMsg(type, msg) { const a = $('alert'); a.className = 'alert show ' + type; a.textContent = msg; if (type === 'ok') setTimeout(() => a.classList.remove('show'), 4000); }
+function toggleRemember(ev) { ev.preventDefault(); remember = !remember; $('rememberOpt').classList.toggle('sel', remember); }
+
+async function unlock() {
+  const k = $('key').value.trim() || session.staffKey();
+  if (!k) return alertMsg('err', '請輸入通行碼');
+  try {
+    const r = await jsonp({ action: 'role', key: k }, 15000);
+    if (!r || !r.role) return alertMsg('err', '通行碼不正確');
+    KEY = k;
+    session.setStaffKey(remember ? k : '');
+    $('keyCard').style.display = 'none';
+    $('main').style.display = 'block';
+    $('device').value = deviceId();
+    renderState(); loadList();
+  } catch (e) { alertMsg('err', '連線失敗：' + e.message); }
+}
+
+function saveDevice() {
+  const v = $('device').value.trim();
+  if (!v) return;
+  try { localStorage.setItem('cog-device', v); } catch (e) {}
+  alertMsg('ok', '已儲存裝置代號 ' + v);
+}
+
+async function renderState() {
+  const box = $('state');
+  const token = session.token();
+  if (!token) { box.innerHTML = '<h3>這台平板目前沒有綁定病人</h3><p class="small">在下方搜尋病人並綁定。</p>'; return; }
+  box.innerHTML = '<h3>查詢中…</h3>';
+  const d = await session.lookup();
+  if (!d || !d.ok) {
+    box.innerHTML = '<h3>綁定已失效</h3><p class="small">' + (d && d.reason === 'offline' ? '目前離線，無法確認。' : '後端已找不到使用中的綁定，請重新綁定。') + '</p>';
+    if (d && d.reason === 'unbound') session.clear();
+    return;
+  }
+  const P = COG.PHASE_LABEL;
+  box.innerHTML = `
+    <h3>已綁定：${d.name}</h3>
+    <dl>
+      <dt>手術日</dt><dd>${d.surgeryDate || '（尚未排定）'} ${d.surgeryStatus ? '· ' + d.surgeryStatus : ''}</dd>
+      <dt>今日時點</dt><dd><b>${d.phase} ${P[d.phase] || ''}</b>${d.pod != null ? '（POD ' + d.pod + '）' : ''}${d.autoPhase ? '' : ' <span class="small">（護理師指定）</span>'}</dd>
+      <dt>已完成</dt><dd>${[d.done.qor15 ? 'QoR-15' : '', d.done.eq5d ? 'EQ-5D' : '', ...Object.keys(d.done.tests || {})].filter(Boolean).join('、') || '尚無'}</dd>
+    </dl>
+    <div class="small mt">時點由手術日自動判定（手術前＝T0、POD1–2＝T1、POD3–4＝T2、POD5 起＝T3）。若病人今天還不能配合，或要提早做出院前項目，可手動指定：</div>
+    <div class="phase">
+      ${['auto', 'T0', 'T1', 'T2', 'T3'].map(ph => `<button class="btn btn-ghost ${(ph === 'auto' ? d.autoPhase : (!d.autoPhase && d.phase === ph)) ? 'sel' : ''}" onclick="setPhase('${ph}')">${ph === 'auto' ? '自動' : ph + ' ' + P[ph]}</button>`).join('')}
+    </div>
+    <div class="nav">
+      <button class="btn btn-danger" onclick="unbind('${token}', true)">解除綁定（出院收回）</button>
+    </div>`;
+}
+
+async function setPhase(ph) {
+  try {
+    const r = await jsonp({ action: 'setPhase', key: KEY, token: session.token(), phase: ph === 'auto' ? '' : ph });
+    if (r.error) return alertMsg('err', r.error);
+    alertMsg('ok', ph === 'auto' ? '已改回自動判定' : '已指定時點 ' + ph);
+    renderState();
+  } catch (e) { alertMsg('err', '連線失敗：' + e.message); }
+}
+
+async function search() {
+  const q = $('q').value.trim();
+  if (!q) return;
+  $('results').innerHTML = '<span class="small">搜尋中…</span>';
+  try {
+    const r = await jsonp({ action: 'searchPatients', key: KEY, q: q });
+    if (r.error) return $('results').innerHTML = '<span class="small">' + (r.error === 'unauthorized' ? '通行碼無效' : r.error) + '</span>';
+    if (!r.list.length) return $('results').innerHTML = '<span class="small">找不到符合的病人</span>';
+    $('results').innerHTML = r.list.map(p => `
+      <div class="pt">
+        <div class="info"><b>${p.name}</b> ${p.gender || ''} ${p.age ? p.age + ' 歲' : ''}
+          <small>${p.surgery || '（術式未填）'} · 預定 ${p.scheduledDate || '未排'} · ${p.surgeryStatus || ''}</small></div>
+        <button class="btn btn-primary" onclick="bind('${p.pk}', this)">綁定這位</button>
+      </div>`).join('');
+  } catch (e) { $('results').innerHTML = '<span class="small">連線失敗：' + e.message + '</span>'; }
+}
+
+async function bind(pk, btn) {
+  if (session.token() && !confirm('這台平板已綁定另一位病人，要改綁這位嗎？（舊綁定會解除）')) return;
+  btn.disabled = true; btn.textContent = '綁定中…';
+  try {
+    const r = await jsonp({ action: 'bindTablet', key: KEY, pk: pk, device: deviceId() });
+    if (r.error) { alertMsg('err', r.error); btn.disabled = false; btn.textContent = '綁定這位'; return; }
+    session.setBinding(r.token, { name: r.name, scheduledDate: r.scheduledDate });
+    alertMsg('ok', '已綁定 ' + r.name + '。可以把平板交給病人了。');
+    $('results').innerHTML = ''; $('q').value = '';
+    renderState(); loadList();
+  } catch (e) { alertMsg('err', '連線失敗：' + e.message); btn.disabled = false; btn.textContent = '綁定這位'; }
+}
+
+async function unbind(token, isThis) {
+  if (!confirm('確定解除綁定？病人之後將無法再用這台平板填寫。')) return;
+  try {
+    const r = await jsonp({ action: 'unbindTablet', key: KEY, token: token });
+    if (r.error) return alertMsg('err', r.error);
+    if (isThis || token === session.token()) session.clear();
+    alertMsg('ok', '已解除綁定');
+    renderState(); loadList();
+  } catch (e) { alertMsg('err', '連線失敗：' + e.message); }
+}
+
+async function loadList() {
+  try {
+    const r = await jsonp({ action: 'listTablets', key: KEY });
+    if (r.error) return $('list').textContent = r.error;
+    if (!r.list.length) return $('list').textContent = '目前沒有使用中的平板。';
+    const mine = session.token();
+    $('list').innerHTML = '<table><tr><th>裝置</th><th>病人</th><th>手術日</th><th>綁定時間</th><th></th></tr>' +
+      r.list.map(b => `<tr${b.token === mine ? ' style="background:var(--teal-tint)"' : ''}><td>${b.device || '—'}${b.token === mine ? '<br><span class="small">（這台）</span>' : ''}</td><td>${b.name}</td><td>${b.scheduledDate || '—'}${b.phaseOverride ? '<br><span class="small">指定 ' + b.phaseOverride + '</span>' : ''}</td><td>${b.bindTime}</td><td><button class="btn btn-danger" style="min-height:40px;padding:4px 12px;font-size:14px" onclick="unbind('${b.token}')">解除</button></td></tr>`).join('') + '</table>';
+  } catch (e) { $('list').textContent = '連線失敗：' + e.message; }
+}
+
+// 啟動：#k=通行碼 或 已記住 → 直接解鎖
+(function init() {
+  $('rememberOpt').classList.add('sel');
+  const m = location.hash.match(/k=([^&]+)/);
+  if (m) $('key').value = decodeURIComponent(m[1]);
+  if (m || session.staffKey()) unlock();
+})();
+</script>
+</body>
+</html>

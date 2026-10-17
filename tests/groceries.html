@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>買菜</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  .container { max-width: 720px; }
+  .stage { display: none; } .stage.active { display: block; }
+  .msg { text-align: center; font-size: 24px; min-height: 40px; margin: 10px 0 14px; font-weight: 500; }
+  .msg.sub { font-size: 18px; color: var(--ink-soft); font-weight: 400; }
+  .list { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; min-height: 120px; align-items: center; }
+  .list .it { width: 100px; height: 100px; border-radius: 16px; background: var(--paper); border: 2px solid var(--gold); display: flex; align-items: center; justify-content: center; font-size: 56px; }
+  .belt { position: relative; height: 200px; margin: 10px auto; width: 100%; max-width: 640px; background: var(--teal-soft); border-radius: 20px; overflow: hidden; border: 1px solid var(--border); }
+  .belt::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: repeating-linear-gradient(90deg, var(--border-strong) 0 18px, transparent 18px 32px); }
+  .item { position: absolute; top: 30px; width: 140px; height: 140px; border-radius: 22px; background: var(--paper); border: 3px solid var(--border-strong); display: flex; align-items: center; justify-content: center; font-size: 76px; -webkit-tap-highlight-color: transparent; touch-action: manipulation; will-change: transform; }
+  .item.hit { border-color: var(--success); background: var(--success-bg); }
+  .item.miss { border-color: var(--danger); background: var(--danger-bg); }
+  .meta { display: flex; justify-content: space-between; font-size: 16px; color: var(--ink-faint); margin: 12px 0; }
+  .demo-tag { display: inline-block; background: var(--gold-tint); color: var(--gold); border: 1px solid #E8D8C0; border-radius: 99px; padding: 2px 12px; font-size: 15px; margin-bottom: 8px; }
+  .countdown { font-family: var(--font-serif); font-size: 48px; color: var(--gold); text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header" style="padding:10px 0 4px"><div class="tag">認知測驗 2／3</div><h1 style="font-size:28px">買菜</h1></div>
+
+  <div class="stage active" id="intro">
+    <div class="notice"><strong>玩法</strong><br>先看<strong>購物清單</strong>幾秒鐘，記住要買什麼。接著商品會從輸送帶<strong>一個一個經過</strong>，看到清單上的東西就<strong>用手點它</strong>；不在清單上的不要點。<br>先做一題練習，練習不計分。</div>
+    <div class="nav"><a class="btn btn-ghost" href="../index.html">回首頁</a><button class="btn btn-primary" onclick="startDemo()">開始練習 →</button></div>
+  </div>
+
+  <div class="stage" id="play">
+    <div class="center"><span class="demo-tag" id="demoTag">練習</span></div>
+    <div class="msg" id="msg">請記住購物清單</div>
+    <div class="list" id="list"></div>
+    <div class="belt" id="belt" style="display:none"></div>
+    <div class="meta"><span id="lvl"></span><span id="trialNo"></span></div>
+    <div class="nav" id="demoNav" style="display:none"><button class="btn btn-ghost" onclick="startDemo()">再練習一次</button><button class="btn btn-primary" onclick="startReal()">開始正式測驗 →</button></div>
+  </div>
+
+  <div class="stage" id="done">
+    <div class="thanks"><div class="ico">✓</div><h2>這一項完成了</h2><p class="muted" id="doneMsg"></p>
+      <div class="mt"><a class="btn btn-primary btn-xl" id="nextLink" href="../index.html" style="min-width:260px">回首頁</a></div></div>
+  </div>
+</div>
+<script src="../_shared/config.js"></script>
+<script src="../_shared/core.js"></script>
+<script>
+const { $, finishTest, rng } = COG;
+const POOL = ['🍎','🍌','🍇','🍉','🍓','🍊','🥕','🌽','🥦','🍅','🥚','🥛','🍞','🧀','🐟','🍗','🍚','🧅','🥔','🍄'];
+const TRIALS = 8, MIN_N = 2, MAX_N = 6;
+let demo = true, n = 2, rand, seed, trials = [], t0 = 0, best = 0;
+
+function show(id) { document.querySelectorAll('.stage').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setMsg(t, sub) { $('msg').textContent = t; $('msg').className = 'msg' + (sub ? ' sub' : ''); }
+function pick(arr, m) { const a = arr.slice(); const out = []; for (let i = 0; i < m; i++) out.push(a.splice(Math.floor(rand() * a.length), 1)[0]); return out; }
+
+function startDemo() { demo = true; n = 2; seed = Date.now() % 1e9; rand = rng(seed); $('demoTag').style.display = ''; $('demoNav').style.display = 'none'; show('play'); runTrial(); }
+function startReal() { demo = false; n = MIN_N; trials = []; best = 0; t0 = Date.now(); seed = Date.now() % 1e9; rand = rng(seed); $('demoTag').style.display = 'none'; $('demoNav').style.display = 'none'; show('play'); runTrial(); }
+
+async function runTrial() {
+  $('lvl').textContent = '清單 ' + n + ' 樣'; $('trialNo').textContent = demo ? '' : '第 ' + (trials.length + 1) + ' 題';
+  const items = pick(POOL, n + Math.min(6, n + 2));
+  const targets = items.slice(0, n), distract = items.slice(n);
+  // 清單
+  $('belt').style.display = 'none'; $('list').style.display = 'flex';
+  $('list').innerHTML = targets.map(e => `<div class="it">${e}</div>`).join('');
+  setMsg('請記住購物清單');
+  await sleep(1500 + n * 900);
+  // 倒數
+  $('list').innerHTML = '<div class="countdown">3</div>'; await sleep(600);
+  $('list').firstChild.textContent = '2'; await sleep(600); $('list').firstChild.textContent = '1'; await sleep(600);
+  $('list').style.display = 'none'; $('belt').style.display = 'block'; $('belt').innerHTML = '';
+  setMsg('看到清單上的東西就點它');
+  // 輸送帶：目標各出現一次、干擾品混入，順序隨機
+  const stream = COG.shuffle(targets.map(e => ({ e, target: true })).concat(distract.map(e => ({ e, target: false }))));
+  const speed = Math.max(2200, 3600 - n * 220);   // 每個商品從右到左的時間 ms（人數越多越快一點）
+  const gap = Math.round(speed * 0.55);
+  const events = [];
+  const beltW = $('belt').clientWidth;
+  for (let idx = 0; idx < stream.length; idx++) {
+    const s = stream[idx];
+    const el = document.createElement('div'); el.className = 'item'; el.textContent = s.e;
+    el.style.transform = `translateX(${beltW}px)`; el.style.transition = `transform ${speed}ms linear`;
+    let tapped = false; const shown = Date.now();
+    el.onclick = () => { if (tapped) return; tapped = true; el.classList.add(s.target ? 'hit' : 'miss'); events.push({ e: s.e, target: s.target, tapped: true, rt: Date.now() - shown }); };
+    $('belt').appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transform = 'translateX(-160px)'; }));
+    setTimeout(() => { if (!tapped) events.push({ e: s.e, target: s.target, tapped: false }); el.remove(); }, speed + 50);
+    await sleep(gap);
+  }
+  await sleep(speed - gap + 300);
+  // 結算
+  const hits = events.filter(x => x.target && x.tapped).length, fa = events.filter(x => !x.target && x.tapped).length;
+  const perfect = hits === n && fa === 0;
+  setMsg(perfect ? '全部買對了！' : `買到 ${hits}／${n} 樣${fa ? '，多買了 ' + fa + ' 樣' : ''}`);
+  if (demo) { await sleep(800); setMsg('練習完成，準備開始正式測驗', true); $('demoNav').style.display = 'flex'; return; }
+  trials.push({ n, hits, fa, events });
+  if (perfect) { best = Math.max(best, n); n = Math.min(MAX_N, n + 1); } else if (hits >= n - 1 && fa <= 1) { best = Math.max(best, n - 1); } else { n = Math.max(MIN_N, n - 1); }
+  await sleep(900);
+  if (trials.length < TRIALS) return runTrial();
+  const totT = trials.reduce((s, t) => s + t.n, 0), totH = trials.reduce((s, t) => s + t.hits, 0), totFA = trials.reduce((s, t) => s + t.fa, 0), totD = trials.reduce((s, t) => s + (t.events.length - t.n), 0);
+  const acc = Math.max(0, totH / totT - (totD ? totFA / totD : 0));
+  const score = Math.max(0, Math.min(100, 50 * (best - MIN_N) / (MAX_N - MIN_N) + 50 * acc));
+  const seconds = (Date.now() - t0) / 1000;
+  const r = await finishTest('groceries', score, { seed, best, hitRate: totH / totT, faRate: totD ? totFA / totD : 0, trials, version: 1 }, seconds);
+  $('doneMsg').textContent = (r === 'queued' ? '目前沒有網路，結果已先存在平板。' : '結果已送出。') + ' 用時 ' + COG.fmtTime(seconds) + '。';
+  const ph = COG.phaseFromUrl(); if (ph) $('nextLink').href = '../index.html?phase=' + ph;
+  show('done');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>恢復狀況問卷 QoR-15</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_shared/pms.css">
+<style>
+  .qnum { font-family: var(--font-serif); color: var(--gold); font-size: 17px; letter-spacing: .1em; }
+  .qtext { font-size: 24px; font-weight: 500; margin: 4px 0 14px; line-height: 1.5; }
+  .partB .scale button.sel { background: var(--gold); border-color: var(--gold); }
+  .part-title { font-family: var(--font-serif); font-size: 20px; color: var(--teal); margin: 6px 0 10px; }
+  .part-hint { font-size: 17px; color: var(--ink-soft); margin-bottom: 16px; line-height: 1.7; }
+  .one { display: none; }
+  .one.active { display: block; }
+  .sel-echo { text-align: center; font-size: 18px; color: var(--ink-soft); min-height: 28px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="progress"><div class="row"><span id="pText">第 1 題，共 15 題</span><strong id="pPct">0%</strong></div><div class="track"><div class="fill" id="pFill"></div></div></div>
+
+  <div class="header" style="padding-top:8px">
+    <div class="tag">QoR-15 · 恢復品質</div>
+    <h1>恢復狀況問卷</h1>
+    <p class="sub" id="phaseNote"></p>
+  </div>
+
+  <div id="alert" class="alert"></div>
+
+  <!-- 前置：填寫者 -->
+  <div class="one active" id="intro">
+    <div class="notice"><strong>請依照您<u>過去 24 小時</u>的實際感覺回答。</strong><br>每一題點選 0 到 10 其中一個數字就可以，沒有對錯。想改答案可以按「上一題」。</div>
+    <div class="card">
+      <div class="label">這份問卷由誰填寫？</div>
+      <div class="options">
+        <div class="opt sel" data-v="本人自行填寫" onclick="pickFiller(this)"><span class="dot"></span>我自己填</div>
+        <div class="opt" data-v="家屬或照顧者協助" onclick="pickFiller(this)"><span class="dot"></span>家人或護理師幫我填</div>
+      </div>
+    </div>
+    <div class="nav"><a class="btn btn-ghost" href="index.html">回首頁</a><button class="btn btn-primary" onclick="go(0)">開始作答 →</button></div>
+  </div>
+
+  <!-- 題目逐題顯示 -->
+  <div class="one" id="qpage">
+    <div id="partHead"></div>
+    <div class="card" id="qcard">
+      <div class="qnum" id="qnum"></div>
+      <div class="qtext" id="qtext"></div>
+      <div class="scale" id="scale"></div>
+      <div class="scale-ends"><span id="endL"></span><span id="endR"></span></div>
+      <div class="sel-echo" id="echo"></div>
+    </div>
+    <div class="nav">
+      <button class="btn btn-ghost" onclick="prev()" id="prevBtn">← 上一題</button>
+      <button class="btn btn-primary" onclick="next()" id="nextBtn">下一題 →</button>
+    </div>
+  </div>
+
+  <!-- 完成 -->
+  <div class="one" id="donePage">
+    <div class="thanks">
+      <div class="ico">✓</div>
+      <h2>謝謝您，問卷完成了</h2>
+      <p class="muted" id="doneMsg"></p>
+      <div class="mt"><a class="btn btn-primary btn-xl" href="index.html" style="min-width:260px">回首頁</a></div>
+    </div>
+  </div>
+
+  <p class="footer">QoR-15 由 Stark、Myles 等人發展（Anesthesiology 2013）；中文版 QoR-15C 依本院個案報告表 V1（2024-05-06）。</p>
+</div>
+
+<script src="_shared/config.js"></script>
+<script src="_shared/core.js"></script>
+<script>
+const { $, session, submit, phaseFromUrl, PHASE_LABEL } = COG;
+
+// 題目依 CRF 原文。A 部分 0=從來沒有(極差) 10=一直都是(很好)；B 部分畫面由左到右顯示 10→0（與 CRF 相同），存入值 10=從來沒有 0=一直都是
+const QA = [
+  '呼吸順暢', '食欲佳', '感覺精力充沛', '睡眠品質佳', '能獨立完成個人衛生和上廁所',
+  '能與家人或朋友溝通交流', '得到醫生和護理師的支持', '可以恢復工作或做尋常家務', '感覺舒適、能控制情緒', '總體上感覺好轉',
+];
+const QB = ['中度疼痛', '劇烈疼痛', '噁心嘔吐', '感覺擔心或焦慮', '感覺悲傷或低落'];
+const Q = QA.map(t => ({ t, part: 'A' })).concat(QB.map(t => ({ t, part: 'B' })));
+
+const phase = phaseFromUrl() || 'T0';
+const answers = new Array(15).fill(null);
+let filler = '本人自行填寫', idx = -1, t0 = Date.now();
+
+$('phaseNote').textContent = (PHASE_LABEL[phase] || '') + ' · 過去 24 小時';
+if (!session.token()) { $('alert').className = 'alert show warn'; $('alert').textContent = '這台平板尚未綁定病人，填寫的資料無法對應到您。請先請護理師綁定。'; }
+
+function pickFiller(el) { document.querySelectorAll('#intro .opt').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); filler = el.dataset.v; }
+function show(id) { document.querySelectorAll('.one').forEach(o => o.classList.remove('active')); $(id).classList.add('active'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function progress() { const n = Math.max(0, Math.min(15, idx)); $('pText').textContent = idx < 0 ? '準備開始' : '第 ' + (idx + 1) + ' 題，共 15 題'; $('pPct').textContent = Math.round(n / 15 * 100) + '%'; $('pFill').style.width = (n / 15 * 100) + '%'; }
+
+function go(i) {
+  idx = i; show('qpage'); progress();
+  const q = Q[i], isB = q.part === 'B';
+  $('qcard').className = 'card' + (isB ? ' partB' : '');
+  $('partHead').innerHTML = isB
+    ? `<div class="part-title">第二部分</div><div class="part-hint">您在過去的 24 小時裡<strong>有以下情況嗎？</strong><br>10 表示從來沒有（很好），0 表示一直都是（極差）。</div>`
+    : `<div class="part-title">第一部分</div><div class="part-hint">您在過去的 24 小時裡<strong>感覺如何？</strong><br>0 表示從來沒有（極差），10 表示一直都是（很好）。</div>`;
+  $('qnum').textContent = '第 ' + (i + 1) + ' 題';
+  $('qtext').textContent = q.t;
+  // A：0..10 左→右；B：10..0 左→右（與紙本 CRF 相同，左邊永遠是「從來沒有」）
+  const vals = isB ? [10,9,8,7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7,8,9,10];
+  $('scale').innerHTML = vals.map(v => `<button type="button" data-v="${v}" class="${answers[i] === v ? 'sel' : ''}" onclick="pick(${v}, this)">${v}</button>`).join('');
+  $('endL').textContent = '從來沒有'; $('endR').textContent = '一直都是';
+  echo();
+  $('prevBtn').textContent = i === 0 ? '← 回上一頁' : '← 上一題';
+  $('nextBtn').textContent = i === 14 ? '送出問卷 ✓' : '下一題 →';
+}
+function echo() {
+  const v = answers[idx];
+  $('echo').textContent = v == null ? '請點選一個數字' : '您選的是 ' + v + ' 分';
+}
+function pick(v, btn) {
+  answers[idx] = v;
+  document.querySelectorAll('#scale button').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel'); $('qcard').classList.remove('error'); echo();
+  // 點完自動進下一題（最後一題不自動送出，讓病人按確認）
+  if (idx < 14) setTimeout(() => go(idx + 1), 350);
+}
+function prev() { if (idx === 0) { idx = -1; show('intro'); progress(); } else go(idx - 1); }
+async function next() {
+  if (answers[idx] == null) { $('qcard').classList.add('error'); $('echo').textContent = '請先點選一個數字再繼續'; return; }
+  if (idx < 14) return go(idx + 1);
+  const missing = answers.findIndex(a => a == null);
+  if (missing >= 0) { go(missing); $('qcard').classList.add('error'); $('echo').textContent = '這一題還沒有作答'; return; }
+  $('nextBtn').disabled = true; $('nextBtn').textContent = '送出中…';
+  const data = { action: 'submitQor15', phase, filler, seconds: Math.round((Date.now() - t0) / 1000) };
+  answers.forEach((a, i) => data['q' + (i + 1)] = a);
+  const r = await submit(data);
+  const total = answers.reduce((s, v) => s + v, 0);
+  $('doneMsg').textContent = r === 'queued' ? '目前沒有網路，您的回答已先存在平板裡，有網路時會自動送出。' : '您的回答已送出。';
+  try { localStorage.setItem('cog-qor15-' + phase + '-' + session.token(), String(total)); } catch (e) {}
+  show('donePage'); $('pFill').style.width = '100%'; $('pPct').textContent = '100%'; $('pText').textContent = '已完成';
+}
+progress();
+</script>
+</body>
+</html>
