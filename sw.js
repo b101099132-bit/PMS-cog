@@ -9,7 +9,7 @@ const PRECACHE = [
   './_shared/config.js', './_shared/core.js', './_shared/pms.css',
   './tests/memory.html', './tests/groceries.html', './tests/lines.html',
   './fun/index.html', './fun/match.html', './fun/onet.html', './fun/slide.html',
-  './staff/bind.html', './staff/minicog.html', './staff/results.html',
+  './staff/bind.html', './staff/minicog.html', './staff/results.html', './staff/guide.html',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png',
 ];
 self.addEventListener('install', e => {

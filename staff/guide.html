@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="theme-color" content="#1F5A5A">
+<title>康復小幫手 — 護理站操作說明</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../_shared/pms.css">
+<style>
+  body { font-size: 16px; }
+  .container { max-width: 860px; }
+  h2 { font-family: var(--font-serif); font-size: 20px; color: var(--teal); margin: 26px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  ol { padding-left: 24px; } ol li { margin: 6px 0; }
+  .step { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; margin: 8px 0; }
+  .step .n { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--teal); color: var(--teal); display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 8px 0; }
+  th, td { padding: 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: var(--teal-tint); font-weight: 500; }
+  .tip { background: var(--gold-tint); border-left: 4px solid var(--gold); padding: 10px 14px; border-radius: var(--radius); margin: 10px 0; }
+  .qa dt { font-weight: 500; margin-top: 10px; } .qa dd { margin: 2px 0 0 0; color: var(--ink-soft); }
+  .print-btn { position: fixed; right: 16px; top: 16px; }
+  @media print { .print-btn, .footer, .nav { display: none; } body { font-size: 13px; background: #fff; } .container { padding: 0; max-width: none; } h2 { page-break-after: avoid; } }
+</style>
+</head>
+<body>
+<button class="btn btn-ghost print-btn" onclick="window.print()">列印</button>
+<div class="container">
+  <div class="header"><div class="tag">心臟加速康復團隊 · 護理站</div><h1>康復小幫手 操作說明</h1><p class="sub">病人住院期間專用 iPad：恢復問卷、認知測驗、休閒遊戲</p><div class="divider"></div></div>
+
+  <h2>一、iPad 初次設定（每台一次）</h2>
+  <div class="step"><span class="n">1</span><div>連上網路（手機熱點或院內可連外網的 Wi-Fi），Safari 打開 <b>b101099132-bit.github.io/PMS-cog/</b></div></div>
+  <div class="step"><span class="n">2</span><div>按 Safari 的「分享」→「加入主畫面」→ 名稱保留「康復小幫手」→ 新增。之後都從桌面圖示開啟。</div></div>
+  <div class="step"><span class="n">3</span><div>打開 App 後點右下角小字「工作人員」→ 輸入<b>團隊通行碼</b>（與急診收案／恢復室頁相同）→ 勾「記住這台裝置」→ 解鎖。</div></div>
+  <div class="step"><span class="n">4</span><div>在「這台平板的代號」填上位置（例如 <b>ICU-1</b>、<b>7A-2</b>）→ 儲存。</div></div>
+  <div class="step"><span class="n">5</span><div>（建議）設定 → 輔助使用 → 引導使用模式 → 開啟並設密碼。交給病人前在 App 內<b>連按三下側邊鍵</b>鎖定，病人就無法切到其他 App；收回時再連按三下輸入密碼解除。</div></div>
+
+  <h2>二、每位病人的流程</h2>
+  <table>
+    <tr><th style="width:110px">時間</th><th>護理師做什麼</th><th>病人做什麼</th></tr>
+    <tr><td><b>術前</b><br>（住院當天）</td><td>工作人員頁 → 搜尋姓名 → <b>綁定這位</b> → 回首頁交給病人。<br>有空時做 <b>Mini-Cog 施測</b>（工作人員頁內按鈕，約 3 分鐘）。</td><td>首頁「今天請您完成」：恢復狀況問卷、三個小測驗。<br>其餘時間可按「玩遊戲」。</td></tr>
+    <tr><td><b>術後第 1 天</b><br>（恢復室／ICU）</td><td>病人清醒、能看螢幕點選時把平板給他。若還不能配合，可在工作人員頁把時點改回「T0」或先不給。</td><td>恢復狀況問卷、三個小測驗（可分次做）。</td></tr>
+    <tr><td><b>術後第 3 天</b></td><td>—（系統依手術日自動切換時點）</td><td>恢復狀況問卷、三個小測驗。</td></tr>
+    <tr><td><b>出院前</b><br>（術後第 5 天起）</td><td>確認病人完成；提醒照護經驗問卷為選填。</td><td>健康狀況問卷、三個小測驗；照護經驗問卷（想填再填）。</td></tr>
+    <tr><td><b>出院時</b></td><td>工作人員頁 → <b>解除綁定</b> → 收回平板、擦拭消毒。平板可直接給下一位。</td><td>—</td></tr>
+  </table>
+  <div class="tip">首頁的待辦會自動打勾、數字歸零就代表今天做完了。病人不需要輸入姓名或任何資料；平板遺失時後端解除綁定即可，資料不會外洩。</div>
+
+  <h2>三、常見狀況</h2>
+  <dl class="qa">
+    <dt>首頁顯示「這台平板還沒有設定好」</dt><dd>尚未綁定病人，或上一位已解除。到工作人員頁重新綁定。</dd>
+    <dt>首頁顯示「目前沒有網路」</dt><dd>病人照常填寫，資料會先存在平板，恢復網路後自動上傳（首頁「重新整理」鈕下方會顯示待上傳筆數）。遊戲與測驗不需網路。</dd>
+    <dt>病人今天不能配合，但系統已經跳到術後第 1 天</dt><dd>工作人員頁 → 狀態卡 → 把時點指定為「T0」，等能配合時再改回「自動」。</dd>
+    <dt>病人提早出院，想先做出院前的項目</dt><dd>工作人員頁 → 時點指定「T3 出院前」。</dd>
+    <dt>做到一半不小心按回首頁</dt><dd>問卷需重新開始（約 3 分鐘）；測驗同樣重做該項，已送出的項目會打勾不會重複。</dd>
+    <dt>想看某位病人的結果</dt><dd>工作人員頁 → 「查看結果」→ 搜尋姓名。</dd>
+    <dt>通行碼錯誤或換碼</dt><dd>與主系統（急診收案／恢復室頁）同一組碼；換碼後工作人員頁會要求重新輸入。</dd>
+  </dl>
+
+  <h2>四、三個小測驗是什麼</h2>
+  <table>
+    <tr><th style="width:110px">測驗</th><th>玩法</th><th>約幾分鐘</th></tr>
+    <tr><td>圖樣記憶</td><td>格子依序亮起，病人依同樣順序點回去；一次比一次多一格。</td><td>3</td></tr>
+    <tr><td>買菜</td><td>先看購物清單幾秒，商品在輸送帶經過時點選清單上的東西。</td><td>4</td></tr>
+    <tr><td>接線</td><td>用四邊箭頭推動整排或整列格子，把被打亂的線接回來。</td><td>5</td></tr>
+  </table>
+  <p class="small muted">測驗每個時點只做一次、每次題目不同，分數供團隊觀察術後早期認知變化之用，不作診斷。</p>
+
+  <div class="nav"><a class="btn btn-ghost" href="bind.html">回綁定頁</a></div>
+  <p class="footer">心臟外科手術病人管理系統 PMS-cog · 工作人員操作說明 v1（2026-10）</p>
+</div>
+</body>
+</html>
