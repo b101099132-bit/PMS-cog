@@ -323,8 +323,19 @@ function cogPhaseOf(surgeryDate, override) {
   else if (pod >= 5) phase = 'T3';
   return { phase: phase, pod: pod, auto: true };
 }
-function cogDoneFor(token, phase) {
-  const done = { qor15: false, eq5d: false, tests: {} };
+function cogDoneFor(token, phase, pk) {
+  const done = { qor15: false, eq5d: false, tests: {}, prems: false };
+  // 照護經驗問卷（主系統「滿意度問卷」表）：有這位病人主鍵的紀錄即視為已填
+  try {
+    if (pk) {
+      const sv = cogSS().getSheetByName('滿意度問卷');
+      if (sv && sv.getLastRow() > 1) {
+        const hdr = sv.getRange(1, 1, 1, sv.getLastColumn()).getValues()[0].map(String);
+        const c = hdr.indexOf('病人PK');
+        if (c >= 0) done.prems = sv.getRange(2, c + 1, sv.getLastRow() - 1, 1).getValues().some(r => String(r[0]) === String(pk));
+      }
+    }
+  } catch (ignore) {}
   const scan = (k, fn) => {
     const sh = cogSheet(k);
     const n = sh.getLastRow() - 1;
@@ -346,9 +357,10 @@ function handleLookupTablet(e) {
     const surgeryDate = pt.actualDate || pt.scheduledDate || fmtD(r.v[COG_BIND.scheduled - 1]);
     const ph = cogPhaseOf(surgeryDate, r.v[COG_BIND.phaseOverride - 1] || '');
     const out = { ok: true, name: maskName(pt.name || r.v[COG_BIND.name - 1]), surgeryDate: surgeryDate,
-      surgeryStatus: pt.status || '', phase: ph.phase, pod: ph.pod, autoPhase: ph.auto, done: cogDoneFor(token, ph.phase),
+      surgeryStatus: pt.status || '', phase: ph.phase, pod: ph.pod, autoPhase: ph.auto, done: cogDoneFor(token, ph.phase, pt.pk || r.v[COG_BIND.pk - 1]),
+      pk: pt.pk || r.v[COG_BIND.pk - 1],   // 病人主鍵（token 本身即該病人專屬，回傳供主系統 PREMs 問卷帶入 ?pk=）
       today: Utilities.formatDate(new Date(), COG_TZ, 'yyyy-MM-dd') };
-    if (p.key && cogRoleOf(p.key)) { out.pk = pt.pk || r.v[COG_BIND.pk - 1]; out.fullName = pt.name || ''; out.gender = pt.gender || ''; out.age = pt.age || ''; }   // 工作人員附通行碼時才回傳主鍵
+    if (p.key && cogRoleOf(p.key)) { out.fullName = pt.name || ''; out.gender = pt.gender || ''; out.age = pt.age || ''; }   // 工作人員附通行碼時才回傳主鍵
     return jsonpResponse(p.callback, out);
   } catch (err) { console.error('handleLookupTablet:', err); return jsonpResponse(p.callback, { error: err.message }); }
 }
