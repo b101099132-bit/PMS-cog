@@ -64,3 +64,7 @@ setup 結束會印出編輯器網址。打開 → 上方函式選 `addCogSheets`
 ## 時點規則
 手術日（實際手術日優先，否則預定日）：手術前＝T0；POD1–2＝T1；POD3–4＝T2；POD5 起＝T3。
 護理師可在綁定頁手動指定（例如 POD1 病人還不能配合）。各時點項目定義在 `index.html` 的 `PLAN`。
+
+## GitHub Pages 注意
+
+- 根目錄必須有空檔 `.nojekyll`（已放），否則 Jekyll 會忽略底線開頭的 `_shared/`，整站 JS/CSS 404。
