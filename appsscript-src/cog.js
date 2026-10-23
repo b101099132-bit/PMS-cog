@@ -4,7 +4,7 @@
  *  2026-10-17。與主系統（PMS-csc 的 程式碼.js）完全分開：
  *    - 這是「同一份 Google 試算表」上的另一個綁定 Apps Script 專案，有自己的 /exec 網址與部署
  *    - 只「讀」病人主檔（找病人、手術日），只「寫」自己的六張工作表；不碰主系統任何欄位
- *    - 通行碼借用主系統驗證（只呼叫主系統 action=role），護理師用同一組團隊碼
+ *    - 通行碼借用主系統驗證（只呼叫主系統 action=role），團隊成員用同一組團隊碼
  *
  *  GET（JSONP）：
  *    action=role           key                      → 驗通行碼
@@ -12,7 +12,7 @@
  *    action=bindTablet     key, pk, device          → 綁定平板，回傳 token
  *    action=unbindTablet   key, token               → 解除綁定
  *    action=listTablets    key                      → 使用中的綁定清單
- *    action=setPhase       key, token, phase        → 護理師手動指定時點（T0–T3，空＝自動）
+ *    action=setPhase       key, token, phase        → 團隊成員手動指定時點（T0–T3，空＝自動）
  *    action=lookupTablet   token                    → 病人今日時點 + 已完成項目
  *
  *  POST（FormData，no-cors）：
@@ -41,7 +41,7 @@ const COG_PT = { pk: 1, name: 3, gender: 4, age: 6, diagnosis: 27, scheduled: 28
 
 // ---------- 通行碼 ----------
 //  預設「借用主系統的通行碼」：把 key 丟給主系統 /exec 的 action=role 驗證（只讀、不寫任何東西），
-//  護理師就用同一組團隊碼，本專案不必另存密碼。若本專案指令碼屬性有 ADMIN_KEY／TEAM_KEY 則優先用自己的。
+//  團隊成員就用同一組團隊碼，本專案不必另存密碼。若本專案指令碼屬性有 ADMIN_KEY／TEAM_KEY 則優先用自己的。
 const COG_MAIN_EXEC = 'https://script.google.com/macros/s/AKfycbzr5eDnHyyq2hWZJ1pD4x5z7h8LkabeZMNDcl6o1lWx0e3bE4CLDCkmqYCzPA1qagU2ug/exec';
 const COG_ADMIN_KEY = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY') || '';
 const COG_TEAM_KEY = PropertiesService.getScriptProperties().getProperty('TEAM_KEY') || '';
@@ -445,7 +445,7 @@ function handleLogFun(e) {
   } catch (err) { console.error('handleLogFun:', err); return jsonResponse({ status: 'error', message: err.message }); }
 }
 
-// ---------- Mini-Cog（護理師端） ----------
+// ---------- Mini-Cog（團隊成員端） ----------
 function cogDriveFolder() {
   const it = DriveApp.getFoldersByName(COG_DRIVE_FOLDER);
   return it.hasNext() ? it.next() : DriveApp.createFolder(COG_DRIVE_FOLDER);

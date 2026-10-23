@@ -15,7 +15,7 @@
     json(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   };
 
-  // 裝置代號：第一次開啟時產生（例如 iPad-3F7K），護理師可在綁定頁改名
+  // 裝置代號：第一次開啟時產生（例如 iPad-3F7K），團隊成員可在綁定頁改名
   function deviceId() {
     let d = ls.get(LS.device);
     if (!d) { d = 'iPad-' + Math.random().toString(36).slice(2, 6).toUpperCase(); ls.set(LS.device, d); }

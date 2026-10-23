@@ -1,6 +1,6 @@
 # PMS-cog — 病人平板（康復小幫手）
 
-心臟手術病人住院期間專用 iPad 網頁：恢復狀況問卷 QoR-15C、三個認知測驗、EQ-5D、休閒遊戲；護理師端：平板綁定、Mini-Cog 施測。
+心臟手術病人住院期間專用 iPad 網頁：恢復狀況問卷 QoR-15C、三個認知測驗、EQ-5D、休閒遊戲；團隊成員端：平板綁定、Mini-Cog 施測。
 **與主系統 PMS-csc 完全分開**：自己的 GitHub repo／Pages、自己的 Apps Script 專案與 /exec 網址、自己的 `deploy.bat`。
 唯一共用的是同一份 Google 試算表 —— 本系統只「讀」病人主檔（找病人、手術日），只「寫」自己新增的六張工作表。
 
@@ -15,14 +15,14 @@ PMS-cog\                     ← git repo 根目錄（GitHub Pages 直接發布�
 ├─ index.html                病人入口
 ├─ qor15.html                恢復狀況問卷 QoR-15C
 ├─ fun\                      休閒遊戲（翻翻樂 match、連連看 onet、數字排排站 slide）
-├─ staff\bind.html           護理師：綁定平板
+├─ staff\bind.html           團隊成員：綁定平板
 ├─ _shared\
 │   ├─ config.js             ★ 貼 PMS-cog 自己的 Apps Script /exec 網址
 │   ├─ core.js               連線、綁定狀態、離線排隊
 │   └─ pms.css               樣式（沿用主系統視覺，字級放大）
 ├─ tests\                    認知測驗（圖樣記憶 memory、買菜 groceries、接線 lines）
 ├─ eq5d.html                 健康狀況問卷 EQ-5D-5L（暫行措辭，正式前換 EuroQol 授權文字）
-├─ staff\minicog.html        護理師：Mini-Cog 施測紀錄＋畫時鐘畫布（PNG 存 Drive）
+├─ staff\minicog.html        團隊成員：Mini-Cog 施測紀錄＋畫時鐘畫布（PNG 存 Drive）
 ├─ tools\setup-once.js       一次性設定腳本（由 setup-once.bat 呼叫）
 ├─ setup-once.bat            一次性設定
 ├─ appsscript-src\
@@ -49,21 +49,21 @@ setup 結束會印出編輯器網址。打開 → 上方函式選 `addCogSheets`
 
 然後雙擊 `deploy.bat`（第一次會 git init 並上傳）→ GitHub repo → Settings → Pages → Branch `main`、`/ (root)` → Save。1–2 分鐘後網址可用。
 
-通行碼：PMS-cog 不另存密碼，護理師在綁定頁輸入的通行碼會丟給**主系統**的 `action=role` 驗證（只讀），所以直接用現有的團隊碼即可。
+通行碼：PMS-cog 不另存密碼，團隊成員在綁定頁輸入的通行碼會丟給**主系統**的 `action=role` 驗證（只讀），所以直接用現有的團隊碼即可。
 
 ## 日常流程
 改檔 → 雙擊 `deploy.bat`。只會推 PMS-cog 的 Apps Script 與 repo，不會碰主系統。
 
 ## iPad 設定
 1. Safari 開 https://b101099132-bit.github.io/PMS-cog/ → 分享 → 加入主畫面（名稱「康復小幫手」）。
-2. 護理師：點右下角「工作人員」→ 輸入團隊通行碼（勾記住）→ 搜尋病人 → 綁定 → 回首頁交給病人。
+2. 團隊成員：點右下角「工作人員」→ 輸入團隊通行碼（勾記住）→ 搜尋病人 → 綁定 → 回首頁交給病人。
 3. 設定 → 輔助使用 → 引導使用模式：開啟後在 App 內連按三下側邊鍵鎖定，病人就不能切到其他 App。
 4. 網路：手機熱點即可；斷線時填寫的資料會先存在平板，恢復連線自動補送（首頁會顯示待上傳筆數）。
 5. 出院：工作人員頁 → 解除綁定 → 平板可直接給下一位。
 
 ## 時點規則
 手術日（實際手術日優先，否則預定日）：手術前＝T0；POD1–2＝T1；POD3–4＝T2；POD5 起＝T3。
-護理師可在綁定頁手動指定（例如 POD1 病人還不能配合）。各時點項目定義在 `index.html` 的 `PLAN`。
+團隊成員可在綁定頁手動指定（例如 POD1 病人還不能配合）。各時點項目定義在 `index.html` 的 `PLAN`。
 
 ## GitHub Pages 注意
 

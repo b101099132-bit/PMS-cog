@@ -41,7 +41,7 @@
       <div class="label">這份問卷由誰填寫？</div>
       <div class="options">
         <div class="opt sel" data-v="本人自行填寫" onclick="pickFiller(this)"><span class="dot"></span>我自己填</div>
-        <div class="opt" data-v="家屬或照顧者協助" onclick="pickFiller(this)"><span class="dot"></span>家人或護理師幫我填</div>
+        <div class="opt" data-v="家屬或照顧者協助" onclick="pickFiller(this)"><span class="dot"></span>家人或團隊成員幫我填</div>
       </div>
     </div>
     <div class="nav"><a class="btn btn-ghost" href="index.html">回首頁</a><button class="btn btn-primary" onclick="go(0)">開始作答 →</button></div>
@@ -94,7 +94,7 @@ const answers = new Array(15).fill(null);
 let filler = '本人自行填寫', idx = -1, t0 = Date.now();
 
 $('phaseNote').textContent = (PHASE_LABEL[phase] || '') + ' · 過去 24 小時';
-if (!session.token()) { $('alert').className = 'alert show warn'; $('alert').textContent = '這台平板尚未綁定病人，填寫的資料無法對應到您。請先請護理師綁定。'; }
+if (!session.token()) { $('alert').className = 'alert show warn'; $('alert').textContent = '這台平板尚未綁定病人，填寫的資料無法對應到您。請先請團隊成員綁定。'; }
 
 function pickFiller(el) { document.querySelectorAll('#intro .opt').forEach(o => o.classList.remove('sel')); el.classList.add('sel'); filler = el.dataset.v; }
 function show(id) { document.querySelectorAll('.one').forEach(o => o.classList.remove('active')); $(id).classList.add('active'); window.scrollTo({ top: 0, behavior: 'smooth' }); }

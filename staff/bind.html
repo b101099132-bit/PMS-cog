@@ -144,7 +144,7 @@ async function renderState() {
     <h3>已綁定：${d.name}</h3>
     <dl>
       <dt>手術日</dt><dd>${d.surgeryDate || '（尚未排定）'} ${d.surgeryStatus ? '· ' + d.surgeryStatus : ''}</dd>
-      <dt>今日時點</dt><dd><b>${d.phase} ${P[d.phase] || ''}</b>${d.pod != null ? '（POD ' + d.pod + '）' : ''}${d.autoPhase ? '' : ' <span class="small">（護理師指定）</span>'}</dd>
+      <dt>今日時點</dt><dd><b>${d.phase} ${P[d.phase] || ''}</b>${d.pod != null ? '（POD ' + d.pod + '）' : ''}${d.autoPhase ? '' : ' <span class="small">（團隊成員指定）</span>'}</dd>
       <dt>已完成</dt><dd>${[d.done.qor15 ? 'QoR-15' : '', d.done.eq5d ? 'EQ-5D' : '', ...Object.keys(d.done.tests || {})].filter(Boolean).join('、') || '尚無'}</dd>
     </dl>
     <div class="small mt">時點由手術日自動判定（手術前＝T0、POD1–2＝T1、POD3–4＝T2、POD5 起＝T3）。若病人今天還不能配合，或要提早做出院前項目，可手動指定：</div>
